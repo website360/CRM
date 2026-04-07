@@ -17,7 +17,10 @@ function corsResponse(body: unknown, init: ResponseInit = {}) {
 function isAuthorized(request: NextRequest): boolean {
   const apiKey = process.env.API_KEY;
   if (!apiKey) return true;
-  return request.headers.get('X-API-Key') === apiKey;
+  // Accept API key from header or query param (sendBeacon can't send headers)
+  const fromHeader = request.headers.get('X-API-Key');
+  const fromQuery = request.nextUrl.searchParams.get('key');
+  return fromHeader === apiKey || fromQuery === apiKey;
 }
 
 export async function OPTIONS() {
