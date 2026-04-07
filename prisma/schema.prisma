@@ -39,16 +39,15 @@ model Campaign {
 }
 
 // ============================================================
-// WhatsApp Integration
+// Multi-Channel Integration
 // ============================================================
 
-model WhatsAppInstance {
+model Channel {
   id            Int      @id @default(autoincrement())
+  type          String   // whatsapp, instagram, messenger, email
   name          String
-  phone         String?
   status        String   @default("disconnected") // disconnected, qr_code, connected
-  qrCode        String?
-  sessionData   Json?
+  config        Json?    // channel-specific config (tokens, phone, page ID, etc.)
   aiEnabled     Boolean  @default(false)
   aiPrompt      String?  @db.Text
   aiModel       String   @default("claude-sonnet-4-6")
@@ -61,20 +60,22 @@ model WhatsAppInstance {
 
 model Conversation {
   id           Int      @id @default(autoincrement())
-  instanceId   Int
-  contactPhone String
+  channelId    Int
+  contactId    String   // phone number, instagram user id, etc.
   contactName  String?
+  contactAvatar String?
   mode         String   @default("ai") // ai, human
   status       String   @default("open") // open, closed
+  unread       Int      @default(0)
   leadId       Int?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  instance WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  lead     Lead?           @relation(fields: [leadId], references: [id])
+  channel  Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  lead     Lead?    @relation(fields: [leadId], references: [id])
   messages Message[]
 
-  @@unique([instanceId, contactPhone])
+  @@unique([channelId, contactId])
 }
 
 model Message {

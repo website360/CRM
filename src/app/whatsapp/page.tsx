@@ -56,20 +56,20 @@ export default function WhatsAppPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   const loadInstances = useCallback(async () => {
-    const res = await fetch("/api/whatsapp/instances");
+    const res = await fetch("/api/channels");
     if (res.ok) setInstances(await res.json());
   }, []);
 
   const loadConversations = useCallback(async (instanceId?: number | null) => {
     const url = instanceId
-      ? `/api/whatsapp/conversations?instanceId=${instanceId}`
-      : "/api/whatsapp/conversations";
+      ? `/api/inbox?instanceId=${instanceId}`
+      : "/api/inbox";
     const res = await fetch(url);
     setConversations(await res.json());
   }, []);
 
   const loadChat = useCallback(async (conversationId: number) => {
-    const res = await fetch(`/api/whatsapp/conversations/${conversationId}`);
+    const res = await fetch(`/api/inbox/${conversationId}`);
     setActiveConversation(await res.json());
   }, []);
 
@@ -95,7 +95,7 @@ export default function WhatsAppPage() {
   async function handleSendMessage() {
     if (!newMessage.trim() || !activeConversation) return;
     setSending(true);
-    await fetch(`/api/whatsapp/conversations/${activeConversation.id}/send`, {
+    await fetch(`/api/inbox/${activeConversation.id}/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: newMessage }),
@@ -106,7 +106,7 @@ export default function WhatsAppPage() {
   }
 
   async function handleTakeover(conversationId: number, mode: string) {
-    await fetch(`/api/whatsapp/conversations/${conversationId}/takeover`, {
+    await fetch(`/api/inbox/${conversationId}/takeover`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode }),
@@ -120,7 +120,7 @@ export default function WhatsAppPage() {
   async function handleInstanceAction(id: number, action: string) {
     setActionLoading(id);
     try {
-      const res = await fetch(`/api/whatsapp/instances/${id}`, {
+      const res = await fetch(`/api/channels/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
@@ -142,9 +142,9 @@ export default function WhatsAppPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">WhatsApp</h2>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">Canais</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Gerencie instâncias, conversas e atendimento por IA
+            Gerencie WhatsApp, Instagram e outros canais de atendimento
           </p>
         </div>
         <div className="flex gap-2">
@@ -479,18 +479,22 @@ function StatusDot({ status }: { status: string }) {
 }
 
 function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [type, setType] = useState("whatsapp");
   const [name, setName] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+  const [pageId, setPageId] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
-    await fetch("/api/whatsapp/instances", {
+    const config = type === "instagram" ? { accessToken, pageId } : undefined;
+    await fetch("/api/channels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, welcomeMessage: welcomeMessage || null }),
+      body: JSON.stringify({ type, name, welcomeMessage: welcomeMessage || null, config }),
     });
     setSaving(false);
     onCreated();
@@ -499,31 +503,54 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
   return (
     <div className="mb-5 bg-white rounded-2xl p-6 shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-200 dark:border-gray-800">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800 dark:text-white/90">Nova Instância WhatsApp</h3>
-        <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:text-white/90">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+        <h3 className="font-semibold text-gray-800 dark:text-white/90">Novo Canal</h3>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nome da instância</label>
-          <input value={name} onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            placeholder="Ex: Atendimento Principal" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Tipo de canal</label>
+          <select value={type} onChange={(e) => setType(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+            <option value="whatsapp">WhatsApp</option>
+            <option value="instagram">Instagram</option>
+          </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Mensagem de boas-vindas (opcional)</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nome do canal</label>
+          <input value={name} onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+            placeholder={type === "whatsapp" ? "Ex: Atendimento Principal" : "Ex: Instagram @empresa"} />
+        </div>
+        {type === "instagram" && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Page/IG User ID</label>
+              <input value={pageId} onChange={(e) => setPageId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                placeholder="ID da página do Instagram" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Access Token (Meta Graph API)</label>
+              <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                placeholder="EAAxxxxxxx..." />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Obtenha em developers.facebook.com &gt; seu app &gt; Instagram Messaging</p>
+            </div>
+          </>
+        )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Mensagem de boas-vindas (opcional)</label>
           <textarea value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} rows={2}
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10 resize-none"
             placeholder="Olá! Bem-vindo, como posso ajudar?" />
         </div>
         <div className="flex gap-2">
-          <button type="submit" disabled={saving} className="px-5 py-2.5 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-500-dark transition disabled:opacity-50">
-            {saving ? "Criando..." : "Criar Instância"}
+          <button type="submit" disabled={saving} className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition disabled:opacity-50">
+            {saving ? "Criando..." : "Criar Canal"}
           </button>
-          <button type="button" onClick={onClose} className="px-5 py-2.5 bg-gray-100 text-gray-500 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-200 transition">
+          <button type="button" onClick={onClose} className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.03] transition">
             Cancelar
           </button>
         </div>
@@ -543,7 +570,7 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await fetch(`/api/whatsapp/instances/${instance.id}`, {
+    await fetch(`/api/channels/${instance.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, welcomeMessage, aiEnabled, aiPrompt, aiModel }),
