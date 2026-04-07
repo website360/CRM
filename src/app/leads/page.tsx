@@ -29,13 +29,14 @@ export default async function LeadsPage() {
                 <th className="px-6 py-4 font-medium">Telefone</th>
                 <th className="px-6 py-4 font-medium">Fonte</th>
                 <th className="px-6 py-4 font-medium">Status</th>
+                <th className="px-6 py-4 font-medium">Extras</th>
                 <th className="px-6 py-4 font-medium">Criado em</th>
               </tr>
             </thead>
             <tbody>
               {leads.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center">
+                  <td colSpan={7} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center">
                         <svg className="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -65,6 +66,9 @@ export default async function LeadsPage() {
                     <td className="px-6 py-4">
                       <StatusBadge status={lead.status} />
                     </td>
+                    <td className="px-6 py-4">
+                      <MetadataCell metadata={lead.metadata} notes={lead.notes} />
+                    </td>
                     <td className="px-6 py-4 text-text-muted text-xs">{lead.createdAt.toLocaleString('pt-BR')}</td>
                   </tr>
                 ))
@@ -73,6 +77,31 @@ export default async function LeadsPage() {
           </table>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetadataCell({ metadata, notes }: { metadata: unknown; notes: string | null }) {
+  const meta = metadata as Record<string, string> | null;
+  const entries = meta ? Object.entries(meta) : [];
+  const hasData = entries.length > 0 || notes;
+
+  if (!hasData) return <span className="text-text-muted">-</span>;
+
+  return (
+    <div className="space-y-1 max-w-xs">
+      {notes && (
+        <div className="text-xs">
+          <span className="font-medium text-text-dark">notas:</span>{' '}
+          <span className="text-text-muted">{notes}</span>
+        </div>
+      )}
+      {entries.map(([key, value]) => (
+        <div key={key} className="text-xs">
+          <span className="font-medium text-text-dark">{key}:</span>{' '}
+          <span className="text-text-muted">{String(value)}</span>
+        </div>
+      ))}
     </div>
   );
 }

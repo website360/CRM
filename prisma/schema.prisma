@@ -17,6 +17,7 @@ model Lead {
   updatedAt DateTime @updatedAt
   status    String   @default("new")
   notes     String?
+  metadata  Json?
 }
 
 model User {

@@ -38,11 +38,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { name, email, phone, source, notes } = await request.json();
+    const { name, email, phone, source, notes, metadata, ...extraFields } = await request.json();
 
     if (!name || !email) {
       return corsResponse({ error: 'Nome e email são obrigatórios' }, { status: 400 });
     }
+
+    // Merge extra fields into metadata
+    const allMetadata = {
+      ...(metadata || {}),
+      ...(Object.keys(extraFields).length > 0 ? extraFields : {}),
+    };
 
     const lead = await prisma.lead.create({
       data: {
@@ -51,6 +57,7 @@ export async function POST(request: NextRequest) {
         phone: phone || null,
         source: source || 'wordpress',
         notes: notes || null,
+        metadata: Object.keys(allMetadata).length > 0 ? allMetadata : undefined,
       },
     });
 
