@@ -24,12 +24,17 @@ const channelIcons: Record<string, { icon: React.ReactNode; color: string; bg: s
     icon: <><rect x="2" y="2" width="20" height="20" rx="5" strokeWidth="1.8" fill="none" stroke="currentColor" /><circle cx="12" cy="12" r="5" strokeWidth="1.8" fill="none" stroke="currentColor" /><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" /></>,
     color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-500/10",
   },
+  webchat: {
+    icon: <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" strokeWidth="1.8" fill="none" stroke="currentColor" />,
+    color: "text-brand-500", bg: "bg-brand-50 dark:bg-brand-500/10",
+  },
 };
 
 const filters = [
   { key: "all", label: "Todos" },
   { key: "whatsapp", label: "WhatsApp" },
   { key: "instagram", label: "Instagram" },
+  { key: "webchat", label: "Chat" },
 ];
 
 export default function InboxPage() {

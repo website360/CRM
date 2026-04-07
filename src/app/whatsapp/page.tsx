@@ -515,6 +515,7 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
             className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
             <option value="whatsapp">WhatsApp</option>
             <option value="instagram">Instagram</option>
+            <option value="webchat">Chat para Site (Widget)</option>
           </select>
         </div>
         <div>
