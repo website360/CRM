@@ -109,6 +109,7 @@ function MetadataCell({ metadata, notes }: { metadata: unknown; notes: string | 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     new: 'bg-primary/10 text-primary',
+    whatsapp: 'bg-green-50 text-green-600',
     contacted: 'bg-blue-50 text-blue-600',
     qualified: 'bg-orange-50 text-orange-600',
     converted: 'bg-purple-50 text-purple-600',
@@ -116,6 +117,7 @@ function StatusBadge({ status }: { status: string }) {
 
   const labels: Record<string, string> = {
     new: 'Novo',
+    whatsapp: 'WhatsApp',
     contacted: 'Contatado',
     qualified: 'Qualificado',
     converted: 'Convertido',
