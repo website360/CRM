@@ -2,6 +2,7 @@ import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
   WASocket,
+  makeCacheableSignalKeyStore,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import { prisma } from '@/lib/prisma';
@@ -9,21 +10,32 @@ import { Prisma } from '@/generated/prisma/client';
 import { handleIncomingMessage } from './ai-agent';
 import path from 'path';
 import fs from 'fs';
+import pino from 'pino';
 
 const AUTH_DIR = path.join(process.cwd(), '.whatsapp-sessions');
+
+// Silent logger for Baileys (reduce noise)
+const logger = pino({ level: 'silent' });
 
 interface InstanceConnection {
   socket: WASocket;
   instanceId: number;
+  retryCount: number;
 }
+
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 5000;
 
 class WhatsAppManager {
   private connections: Map<number, InstanceConnection> = new Map();
-  private qrCallbacks: Map<number, (qr: string) => void> = new Map();
 
-  async connect(instanceId: number): Promise<void> {
+  async connect(instanceId: number, retryCount = 0): Promise<void> {
     // Disconnect existing connection if any
-    this.disconnect(instanceId);
+    const existing = this.connections.get(instanceId);
+    if (existing) {
+      existing.socket.end(undefined);
+      this.connections.delete(instanceId);
+    }
 
     const sessionDir = path.join(AUTH_DIR, `instance-${instanceId}`);
     if (!fs.existsSync(sessionDir)) {
@@ -33,64 +45,84 @@ class WhatsAppManager {
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
 
     const socket = makeWASocket({
-      auth: state,
-      printQRInTerminal: false,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, logger),
+      },
+      printQRInTerminal: true, // Also print in terminal for debugging
+      logger,
       browser: ['CRM LP', 'Chrome', '1.0.0'],
+      connectTimeoutMs: 30000,
+      qrTimeout: 60000,
     });
 
-    this.connections.set(instanceId, { socket, instanceId });
+    this.connections.set(instanceId, { socket, instanceId, retryCount });
 
     // Handle connection updates
     socket.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        // Save QR code to database
-        await prisma.whatsAppInstance.update({
-          where: { id: instanceId },
-          data: { status: 'qr_code', qrCode: qr },
-        });
-
-        // Notify QR callback if any
-        const callback = this.qrCallbacks.get(instanceId);
-        if (callback) callback(qr);
+        console.log(`[WA:${instanceId}] QR Code generated`);
+        try {
+          await prisma.whatsAppInstance.update({
+            where: { id: instanceId },
+            data: { status: 'qr_code', qrCode: qr },
+          });
+        } catch (e) {
+          console.error(`[WA:${instanceId}] Failed to save QR:`, e);
+        }
       }
 
       if (connection === 'close') {
         const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        const reason = DisconnectReason;
+        console.log(`[WA:${instanceId}] Connection closed, statusCode: ${statusCode}`);
 
-        await prisma.whatsAppInstance.update({
-          where: { id: instanceId },
-          data: {
-            status: 'disconnected',
-            qrCode: null,
-            ...(statusCode === DisconnectReason.loggedOut ? { sessionData: Prisma.DbNull } : {}),
-          },
-        });
+        this.connections.delete(instanceId);
 
-        if (shouldReconnect) {
-          // Retry connection
-          setTimeout(() => this.connect(instanceId), 3000);
-        } else {
-          // User logged out, clean session
-          this.connections.delete(instanceId);
+        if (statusCode === reason.loggedOut) {
+          // User logged out - clean everything
+          console.log(`[WA:${instanceId}] Logged out, cleaning session`);
           if (fs.existsSync(sessionDir)) {
             fs.rmSync(sessionDir, { recursive: true });
           }
+          await prisma.whatsAppInstance.update({
+            where: { id: instanceId },
+            data: { status: 'disconnected', qrCode: null, phone: null, sessionData: Prisma.DbNull },
+          });
+        } else if (statusCode === reason.restartRequired) {
+          // Restart required - reconnect immediately
+          console.log(`[WA:${instanceId}] Restart required, reconnecting...`);
+          this.connect(instanceId, 0);
+        } else if (retryCount < MAX_RETRIES) {
+          // Retry with backoff
+          const delay = RETRY_DELAY * (retryCount + 1);
+          console.log(`[WA:${instanceId}] Reconnecting in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+          await prisma.whatsAppInstance.update({
+            where: { id: instanceId },
+            data: { status: 'disconnected', qrCode: null },
+          });
+          setTimeout(() => this.connect(instanceId, retryCount + 1), delay);
+        } else {
+          console.log(`[WA:${instanceId}] Max retries reached, giving up`);
+          await prisma.whatsAppInstance.update({
+            where: { id: instanceId },
+            data: { status: 'disconnected', qrCode: null },
+          });
         }
       }
 
       if (connection === 'open') {
         const phone = socket.user?.id?.split(':')[0] || null;
+        console.log(`[WA:${instanceId}] Connected! Phone: ${phone}`);
         await prisma.whatsAppInstance.update({
           where: { id: instanceId },
-          data: {
-            status: 'connected',
-            qrCode: null,
-            phone,
-          },
+          data: { status: 'connected', qrCode: null, phone },
         });
+        // Reset retry count on successful connection
+        const conn = this.connections.get(instanceId);
+        if (conn) conn.retryCount = 0;
       }
     });
 
@@ -114,15 +146,21 @@ class WhatsAppManager {
           msg.message.imageMessage?.caption ||
           '';
 
+        if (!text) continue;
+
         const contactName = msg.pushName || contactPhone;
 
-        await handleIncomingMessage({
-          instanceId,
-          contactPhone,
-          contactName,
-          text,
-          socket,
-        });
+        try {
+          await handleIncomingMessage({
+            instanceId,
+            contactPhone,
+            contactName,
+            text,
+            socket,
+          });
+        } catch (e) {
+          console.error(`[WA:${instanceId}] Error handling message:`, e);
+        }
       }
     });
   }
@@ -133,13 +171,16 @@ class WhatsAppManager {
       conn.socket.end(undefined);
       this.connections.delete(instanceId);
     }
-    this.qrCallbacks.delete(instanceId);
   }
 
   async logout(instanceId: number): Promise<void> {
     const conn = this.connections.get(instanceId);
     if (conn) {
-      await conn.socket.logout();
+      try {
+        await conn.socket.logout();
+      } catch (e) {
+        // Ignore logout errors
+      }
       this.connections.delete(instanceId);
     }
 
@@ -162,10 +203,6 @@ class WhatsAppManager {
     return this.connections.has(instanceId);
   }
 
-  onQR(instanceId: number, callback: (qr: string) => void): void {
-    this.qrCallbacks.set(instanceId, callback);
-  }
-
   async sendMessage(instanceId: number, phone: string, text: string): Promise<void> {
     const socket = this.getSocket(instanceId);
     if (!socket) throw new Error('Instância não conectada');
@@ -174,7 +211,6 @@ class WhatsAppManager {
     await socket.sendMessage(jid, { text });
   }
 
-  // Reconnect all active instances on startup
   async reconnectAll(): Promise<void> {
     const instances = await prisma.whatsAppInstance.findMany({
       where: { status: 'connected' },
@@ -183,6 +219,7 @@ class WhatsAppManager {
     for (const instance of instances) {
       const sessionDir = path.join(AUTH_DIR, `instance-${instance.id}`);
       if (fs.existsSync(sessionDir)) {
+        console.log(`[WA:${instance.id}] Reconnecting on startup...`);
         this.connect(instance.id).catch(console.error);
       }
     }
