@@ -13,181 +13,176 @@ import fs from 'fs';
 import pino from 'pino';
 
 const AUTH_DIR = path.join(process.cwd(), '.whatsapp-sessions');
-
-// Silent logger for Baileys (reduce noise)
 const logger = pino({ level: 'silent' });
 
-interface InstanceConnection {
-  socket: WASocket;
-  instanceId: number;
-  retryCount: number;
-}
-
-const MAX_RETRIES = 5;
-const RETRY_DELAY = 5000;
+const MAX_QR_RETRIES = 3;
 
 class WhatsAppManager {
-  private connections: Map<number, InstanceConnection> = new Map();
+  private sockets: Map<number, WASocket> = new Map();
+  private connecting: Set<number> = new Set(); // prevent duplicate connects
 
-  async connect(instanceId: number, retryCount = 0): Promise<void> {
-    // Disconnect existing connection if any
-    const existing = this.connections.get(instanceId);
-    if (existing) {
-      existing.socket.end(undefined);
-      this.connections.delete(instanceId);
+  async connect(instanceId: number, attempt = 0): Promise<void> {
+    // Prevent duplicate connections
+    if (this.connecting.has(instanceId)) {
+      console.log(`[WA:${instanceId}] Already connecting, skipping`);
+      return;
+    }
+    this.connecting.add(instanceId);
+
+    // Clean previous socket
+    const prev = this.sockets.get(instanceId);
+    if (prev) {
+      prev.end(undefined);
+      this.sockets.delete(instanceId);
     }
 
     const sessionDir = path.join(AUTH_DIR, `instance-${instanceId}`);
-    if (!fs.existsSync(sessionDir)) {
-      fs.mkdirSync(sessionDir, { recursive: true });
-    }
+    fs.mkdirSync(sessionDir, { recursive: true });
 
-    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+    try {
+      const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
 
-    const socket = makeWASocket({
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, logger),
-      },
-      printQRInTerminal: true, // Also print in terminal for debugging
-      logger,
-      browser: ['CRM LP', 'Chrome', '1.0.0'],
-      connectTimeoutMs: 30000,
-      qrTimeout: 60000,
-    });
+      const socket = makeWASocket({
+        auth: {
+          creds: state.creds,
+          keys: makeCacheableSignalKeyStore(state.keys, logger),
+        },
+        logger,
+        browser: ['CRM LP', 'Chrome', '1.0.0'],
+        connectTimeoutMs: 30000,
+      });
 
-    this.connections.set(instanceId, { socket, instanceId, retryCount });
+      this.sockets.set(instanceId, socket);
 
-    // Handle connection updates
-    socket.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, qr } = update;
+      socket.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect, qr } = update;
 
-      if (qr) {
-        console.log(`[WA:${instanceId}] QR Code generated`);
-        try {
+        if (qr) {
+          console.log(`[WA:${instanceId}] QR Code received (attempt ${attempt + 1})`);
           await prisma.whatsAppInstance.update({
             where: { id: instanceId },
             data: { status: 'qr_code', qrCode: qr },
-          });
-        } catch (e) {
-          console.error(`[WA:${instanceId}] Failed to save QR:`, e);
+          }).catch(console.error);
         }
-      }
 
-      if (connection === 'close') {
-        const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-        const reason = DisconnectReason;
-        console.log(`[WA:${instanceId}] Connection closed, statusCode: ${statusCode}`);
+        if (connection === 'open') {
+          this.connecting.delete(instanceId);
+          const phone = socket.user?.id?.split(':')[0] || null;
+          console.log(`[WA:${instanceId}] Connected! Phone: ${phone}`);
+          await prisma.whatsAppInstance.update({
+            where: { id: instanceId },
+            data: { status: 'connected', qrCode: null, phone },
+          }).catch(console.error);
+        }
 
-        this.connections.delete(instanceId);
+        if (connection === 'close') {
+          this.connecting.delete(instanceId);
+          this.sockets.delete(instanceId);
 
-        if (statusCode === reason.loggedOut) {
-          // User logged out - clean everything
-          console.log(`[WA:${instanceId}] Logged out, cleaning session`);
-          if (fs.existsSync(sessionDir)) {
-            fs.rmSync(sessionDir, { recursive: true });
+          const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+          console.log(`[WA:${instanceId}] Closed (code: ${statusCode})`);
+
+          if (statusCode === DisconnectReason.loggedOut) {
+            // Logged out - clean session
+            fs.rmSync(sessionDir, { recursive: true, force: true });
+            await prisma.whatsAppInstance.update({
+              where: { id: instanceId },
+              data: { status: 'disconnected', qrCode: null, phone: null, sessionData: Prisma.DbNull },
+            }).catch(console.error);
+
+          } else if (statusCode === DisconnectReason.restartRequired) {
+            // Restart - reconnect once
+            console.log(`[WA:${instanceId}] Restart required`);
+            setTimeout(() => this.connect(instanceId, 0), 2000);
+
+          } else if (statusCode === 405 || statusCode === 410 || statusCode === 440) {
+            // Rate limited or version outdated - clean and stop
+            console.log(`[WA:${instanceId}] Blocked (${statusCode}), cleaning session`);
+            fs.rmSync(sessionDir, { recursive: true, force: true });
+            await prisma.whatsAppInstance.update({
+              where: { id: instanceId },
+              data: { status: 'disconnected', qrCode: null },
+            }).catch(console.error);
+
+          } else if (attempt < MAX_QR_RETRIES) {
+            // QR expired or connection lost - retry
+            const delay = 3000 * (attempt + 1);
+            console.log(`[WA:${instanceId}] Retrying in ${delay}ms (${attempt + 1}/${MAX_QR_RETRIES})`);
+            await prisma.whatsAppInstance.update({
+              where: { id: instanceId },
+              data: { status: 'disconnected', qrCode: null },
+            }).catch(console.error);
+            setTimeout(() => this.connect(instanceId, attempt + 1), delay);
+
+          } else {
+            console.log(`[WA:${instanceId}] Max retries, stopped`);
+            await prisma.whatsAppInstance.update({
+              where: { id: instanceId },
+              data: { status: 'disconnected', qrCode: null },
+            }).catch(console.error);
           }
-          await prisma.whatsAppInstance.update({
-            where: { id: instanceId },
-            data: { status: 'disconnected', qrCode: null, phone: null, sessionData: Prisma.DbNull },
-          });
-        } else if (statusCode === reason.restartRequired) {
-          // Restart required - reconnect immediately
-          console.log(`[WA:${instanceId}] Restart required, reconnecting...`);
-          this.connect(instanceId, 0);
-        } else if (retryCount < MAX_RETRIES) {
-          // Retry with backoff
-          const delay = RETRY_DELAY * (retryCount + 1);
-          console.log(`[WA:${instanceId}] Reconnecting in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
-          await prisma.whatsAppInstance.update({
-            where: { id: instanceId },
-            data: { status: 'disconnected', qrCode: null },
-          });
-          setTimeout(() => this.connect(instanceId, retryCount + 1), delay);
-        } else {
-          console.log(`[WA:${instanceId}] Max retries reached, giving up`);
-          await prisma.whatsAppInstance.update({
-            where: { id: instanceId },
-            data: { status: 'disconnected', qrCode: null },
-          });
         }
-      }
+      });
 
-      if (connection === 'open') {
-        const phone = socket.user?.id?.split(':')[0] || null;
-        console.log(`[WA:${instanceId}] Connected! Phone: ${phone}`);
-        await prisma.whatsAppInstance.update({
-          where: { id: instanceId },
-          data: { status: 'connected', qrCode: null, phone },
-        });
-        // Reset retry count on successful connection
-        const conn = this.connections.get(instanceId);
-        if (conn) conn.retryCount = 0;
-      }
-    });
+      socket.ev.on('creds.update', saveCreds);
 
-    // Save credentials on update
-    socket.ev.on('creds.update', saveCreds);
+      // Handle incoming messages
+      socket.ev.on('messages.upsert', async ({ messages, type }) => {
+        if (type !== 'notify') return;
 
-    // Handle incoming messages
-    socket.ev.on('messages.upsert', async ({ messages, type }) => {
-      if (type !== 'notify') return;
+        for (const msg of messages) {
+          if (msg.key.fromMe || !msg.message) continue;
 
-      for (const msg of messages) {
-        if (msg.key.fromMe) continue;
-        if (!msg.message) continue;
+          const contactPhone = msg.key.remoteJid?.replace('@s.whatsapp.net', '') || '';
+          if (!contactPhone || contactPhone === 'status') continue;
 
-        const contactPhone = msg.key.remoteJid?.replace('@s.whatsapp.net', '') || '';
-        if (!contactPhone || contactPhone === 'status') continue;
+          const text =
+            msg.message.conversation ||
+            msg.message.extendedTextMessage?.text ||
+            msg.message.imageMessage?.caption ||
+            '';
 
-        const text =
-          msg.message.conversation ||
-          msg.message.extendedTextMessage?.text ||
-          msg.message.imageMessage?.caption ||
-          '';
+          if (!text) continue;
 
-        if (!text) continue;
-
-        const contactName = msg.pushName || contactPhone;
-
-        try {
-          await handleIncomingMessage({
+          handleIncomingMessage({
             instanceId,
             contactPhone,
-            contactName,
+            contactName: msg.pushName || contactPhone,
             text,
             socket,
-          });
-        } catch (e) {
-          console.error(`[WA:${instanceId}] Error handling message:`, e);
+          }).catch(console.error);
         }
-      }
-    });
+      });
+
+    } catch (error) {
+      this.connecting.delete(instanceId);
+      console.error(`[WA:${instanceId}] Connection error:`, error);
+      await prisma.whatsAppInstance.update({
+        where: { id: instanceId },
+        data: { status: 'disconnected', qrCode: null },
+      }).catch(console.error);
+    }
   }
 
   disconnect(instanceId: number): void {
-    const conn = this.connections.get(instanceId);
-    if (conn) {
-      conn.socket.end(undefined);
-      this.connections.delete(instanceId);
+    this.connecting.delete(instanceId);
+    const socket = this.sockets.get(instanceId);
+    if (socket) {
+      socket.end(undefined);
+      this.sockets.delete(instanceId);
     }
   }
 
   async logout(instanceId: number): Promise<void> {
-    const conn = this.connections.get(instanceId);
-    if (conn) {
-      try {
-        await conn.socket.logout();
-      } catch (e) {
-        // Ignore logout errors
-      }
-      this.connections.delete(instanceId);
+    const socket = this.sockets.get(instanceId);
+    if (socket) {
+      try { await socket.logout(); } catch {}
+      this.sockets.delete(instanceId);
     }
+    this.connecting.delete(instanceId);
 
     const sessionDir = path.join(AUTH_DIR, `instance-${instanceId}`);
-    if (fs.existsSync(sessionDir)) {
-      fs.rmSync(sessionDir, { recursive: true });
-    }
+    fs.rmSync(sessionDir, { recursive: true, force: true });
 
     await prisma.whatsAppInstance.update({
       where: { id: instanceId },
@@ -196,17 +191,12 @@ class WhatsAppManager {
   }
 
   getSocket(instanceId: number): WASocket | null {
-    return this.connections.get(instanceId)?.socket || null;
-  }
-
-  isConnected(instanceId: number): boolean {
-    return this.connections.has(instanceId);
+    return this.sockets.get(instanceId) || null;
   }
 
   async sendMessage(instanceId: number, phone: string, text: string): Promise<void> {
     const socket = this.getSocket(instanceId);
     if (!socket) throw new Error('Instância não conectada');
-
     const jid = phone.includes('@') ? phone : `${phone}@s.whatsapp.net`;
     await socket.sendMessage(jid, { text });
   }
@@ -215,12 +205,11 @@ class WhatsAppManager {
     const instances = await prisma.whatsAppInstance.findMany({
       where: { status: 'connected' },
     });
-
-    for (const instance of instances) {
-      const sessionDir = path.join(AUTH_DIR, `instance-${instance.id}`);
+    for (const inst of instances) {
+      const sessionDir = path.join(AUTH_DIR, `instance-${inst.id}`);
       if (fs.existsSync(sessionDir)) {
-        console.log(`[WA:${instance.id}] Reconnecting on startup...`);
-        this.connect(instance.id).catch(console.error);
+        console.log(`[WA:${inst.id}] Reconnecting on startup`);
+        this.connect(inst.id).catch(console.error);
       }
     }
   }

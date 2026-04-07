@@ -53,10 +53,11 @@ export default function WhatsAppPage() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [filterInstanceId, setFilterInstanceId] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   const loadInstances = useCallback(async () => {
     const res = await fetch("/api/whatsapp/instances");
-    setInstances(await res.json());
+    if (res.ok) setInstances(await res.json());
   }, []);
 
   const loadConversations = useCallback(async (instanceId?: number | null) => {
@@ -117,12 +118,24 @@ export default function WhatsAppPage() {
   }
 
   async function handleInstanceAction(id: number, action: string) {
-    await fetch(`/api/whatsapp/instances/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    setTimeout(loadInstances, 1000);
+    setActionLoading(id);
+    try {
+      const res = await fetch(`/api/whatsapp/instances/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      console.log(`[WA Action] ${action}:`, data);
+    } catch (e) {
+      console.error(`[WA Action] ${action} failed:`, e);
+    }
+    // Poll aggressively for QR code
+    for (let i = 0; i < 5; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      await loadInstances();
+    }
+    setActionLoading(null);
   }
 
   return (
@@ -218,9 +231,10 @@ export default function WhatsAppPage() {
                   {inst.status === "disconnected" && (
                     <button
                       onClick={() => handleInstanceAction(inst.id, "connect")}
-                      className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition"
+                      disabled={actionLoading === inst.id}
+                      className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition disabled:opacity-50"
                     >
-                      Conectar
+                      {actionLoading === inst.id ? "Conectando..." : "Conectar"}
                     </button>
                   )}
                   {inst.status === "qr_code" && (
