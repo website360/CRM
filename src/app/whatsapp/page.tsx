@@ -142,21 +142,21 @@ export default function WhatsAppPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text-dark">WhatsApp</h2>
-          <p className="text-text-muted text-sm mt-1">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">WhatsApp</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Gerencie instâncias, conversas e atendimento por IA
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => { setView("instances"); loadInstances(); }}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${view === "instances" ? "bg-primary text-white" : "bg-white text-text-muted border border-gray-200 hover:bg-gray-50"}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${view === "instances" ? "bg-brand-500 text-white" : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-white/5 dark:hover:bg-white/[0.03]"}`}
           >
             Instâncias
           </button>
           <button
             onClick={() => { setView("conversations"); loadConversations(); }}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${view === "conversations" || view === "chat" ? "bg-primary text-white" : "bg-white text-text-muted border border-gray-200 hover:bg-gray-50"}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${view === "conversations" || view === "chat" ? "bg-brand-500 text-white" : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-white/5 dark:hover:bg-white/[0.03]"}`}
           >
             Conversas
           </button>
@@ -168,7 +168,7 @@ export default function WhatsAppPage() {
         <div>
           <button
             onClick={() => setShowCreateForm(true)}
-            className="mb-5 flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-semibold px-5 py-3 rounded-xl transition"
+            className="mb-5 flex items-center gap-2 bg-brand-500 hover:bg-brand-500-dark text-white font-semibold px-5 py-3 rounded-xl transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -193,11 +193,11 @@ export default function WhatsAppPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {instances.map((inst) => (
-              <div key={inst.id} className="bg-white rounded-2xl p-5 shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-50">
+              <div key={inst.id} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-5">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="font-semibold text-text-dark">{inst.name}</h3>
-                    <p className="text-xs text-text-muted mt-0.5">
+                    <h3 className="font-semibold text-gray-800 dark:text-white/90">{inst.name}</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {inst.phone || "Não conectado"}
                     </p>
                   </div>
@@ -207,7 +207,7 @@ export default function WhatsAppPage() {
                 {/* QR Code */}
                 {inst.status === "qr_code" && inst.qrCode && (
                   <div className="mb-4 p-3 bg-gray-50 rounded-xl text-center">
-                    <p className="text-xs text-text-muted mb-2">Escaneie o QR Code no WhatsApp</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Escaneie o QR Code no WhatsApp</p>
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(inst.qrCode)}`}
                       alt="QR Code"
@@ -218,7 +218,7 @@ export default function WhatsAppPage() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 text-xs text-text-muted mb-4">
+                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-4">
                   <span className={`px-2 py-0.5 rounded-full ${inst.aiEnabled ? "bg-purple-50 text-purple-600" : "bg-gray-100 text-gray-500"}`}>
                     {inst.aiEnabled ? "IA Ativa" : "IA Desligada"}
                   </span>
@@ -232,7 +232,7 @@ export default function WhatsAppPage() {
                     <button
                       onClick={() => handleInstanceAction(inst.id, "connect")}
                       disabled={actionLoading === inst.id}
-                      className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition disabled:opacity-50"
+                      className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-brand-50 dark:bg-brand-500/10 text-primary hover:bg-brand-100 dark:hover:bg-brand-500/20 transition disabled:opacity-50"
                     >
                       {actionLoading === inst.id ? "Conectando..." : "Conectar"}
                     </button>
@@ -240,7 +240,7 @@ export default function WhatsAppPage() {
                   {inst.status === "qr_code" && (
                     <button
                       onClick={() => handleInstanceAction(inst.id, "disconnect")}
-                      className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-gray-100 text-text-muted hover:bg-gray-200 transition"
+                      className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-gray-100 text-gray-500 dark:text-gray-400 hover:bg-gray-200 transition"
                     >
                       Cancelar
                     </button>
@@ -249,7 +249,7 @@ export default function WhatsAppPage() {
                     <>
                       <button
                         onClick={() => { setFilterInstanceId(inst.id); setView("conversations"); loadConversations(inst.id); }}
-                        className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition"
+                        className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-brand-50 dark:bg-brand-500/10 text-primary hover:bg-brand-100 dark:hover:bg-brand-500/20 transition"
                       >
                         Ver Conversas
                       </button>
@@ -263,7 +263,7 @@ export default function WhatsAppPage() {
                   )}
                   <button
                     onClick={() => setShowEditForm(inst)}
-                    className="px-3 py-2 text-xs font-medium rounded-lg bg-gray-100 text-text-muted hover:bg-gray-200 transition"
+                    className="px-3 py-2 text-xs font-medium rounded-lg bg-gray-100 text-gray-500 dark:text-gray-400 hover:bg-gray-200 transition"
                   >
                     Config
                   </button>
@@ -272,7 +272,7 @@ export default function WhatsAppPage() {
             ))}
 
             {instances.length === 0 && (
-              <div className="col-span-full text-center py-16 text-text-muted">
+              <div className="col-span-full text-center py-16 text-gray-500 dark:text-gray-400">
                 Nenhuma instância criada. Clique em "Nova Instância" para começar.
               </div>
             )}
@@ -284,9 +284,9 @@ export default function WhatsAppPage() {
       {view === "conversations" && (
         <div className="flex gap-5 h-[calc(100vh-220px)]">
           {/* Conversation list */}
-          <div className="w-96 bg-white rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-50 flex flex-col">
-            <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-              <h3 className="font-semibold text-text-dark text-sm">Conversas</h3>
+          <div className="w-96 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] flex flex-col">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <h3 className="font-semibold text-gray-800 dark:text-white/90 text-sm">Conversas</h3>
               {filterInstanceId && (
                 <button onClick={() => { setFilterInstanceId(null); loadConversations(); }} className="text-xs text-primary">
                   Ver todas
@@ -298,36 +298,36 @@ export default function WhatsAppPage() {
                 <button
                   key={conv.id}
                   onClick={() => { loadChat(conv.id); setView("chat"); }}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition ${activeConversation?.id === conv.id ? "bg-primary/5" : ""}`}
+                  className={`w-full text-left px-4 py-3 border-b border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-white/5 transition ${activeConversation?.id === conv.id ? "bg-brand-500/5" : ""}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm text-text-dark">
+                    <span className="font-medium text-sm text-gray-800 dark:text-white/90">
                       {conv.contactName || conv.contactPhone}
                     </span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${conv.mode === "ai" ? "bg-purple-50 text-purple-600" : "bg-blue-50 text-blue-600"}`}>
                       {conv.mode === "ai" ? "IA" : "Humano"}
                     </span>
                   </div>
-                  <p className="text-xs text-text-muted truncate mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                     {conv.messages[0]?.content || "Sem mensagens"}
                   </p>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-[10px] text-text-muted">{conv.instance.name}</span>
-                    <span className="text-[10px] text-text-muted">
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400">{conv.instance.name}</span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
                       {new Date(conv.updatedAt).toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}
                     </span>
                   </div>
                 </button>
               ))}
               {conversations.length === 0 && (
-                <p className="p-4 text-center text-text-muted text-sm">Nenhuma conversa ainda.</p>
+                <p className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">Nenhuma conversa ainda.</p>
               )}
             </div>
           </div>
 
           {/* Empty state */}
-          <div className="flex-1 bg-white rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-50 flex items-center justify-center">
-            <p className="text-text-muted">Selecione uma conversa para visualizar</p>
+          <div className="flex-1 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] flex items-center justify-center">
+            <p className="text-gray-500 dark:text-gray-400">Selecione uma conversa para visualizar</p>
           </div>
         </div>
       )}
@@ -336,26 +336,26 @@ export default function WhatsAppPage() {
       {view === "chat" && activeConversation && (
         <div className="flex gap-5 h-[calc(100vh-220px)]">
           {/* Conversation list (sidebar) */}
-          <div className="w-80 bg-white rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-50 flex flex-col">
-            <div className="px-4 py-3 border-b border-gray-50">
-              <h3 className="font-semibold text-text-dark text-sm">Conversas</h3>
+          <div className="w-80 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] flex flex-col">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+              <h3 className="font-semibold text-gray-800 dark:text-white/90 text-sm">Conversas</h3>
             </div>
             <div className="flex-1 overflow-y-auto">
               {conversations.map((conv) => (
                 <button
                   key={conv.id}
                   onClick={() => loadChat(conv.id)}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition ${activeConversation.id === conv.id ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}
+                  className={`w-full text-left px-4 py-3 border-b border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-white/5 transition ${activeConversation.id === conv.id ? "bg-brand-500/5 border-l-2 border-l-primary" : ""}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-xs text-text-dark truncate">
+                    <span className="font-medium text-xs text-gray-800 dark:text-white/90 truncate">
                       {conv.contactName || conv.contactPhone}
                     </span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${conv.mode === "ai" ? "bg-purple-50 text-purple-600" : "bg-blue-50 text-blue-600"}`}>
                       {conv.mode === "ai" ? "IA" : "H"}
                     </span>
                   </div>
-                  <p className="text-[11px] text-text-muted truncate mt-0.5">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
                     {conv.messages[0]?.content || ""}
                   </p>
                 </button>
@@ -364,14 +364,14 @@ export default function WhatsAppPage() {
           </div>
 
           {/* Chat area */}
-          <div className="flex-1 bg-white rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-50 flex flex-col">
+          <div className="flex-1 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] flex flex-col">
             {/* Chat header */}
-            <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-text-dark">
+                <h3 className="font-semibold text-gray-800 dark:text-white/90">
                   {activeConversation.contactName || activeConversation.contactPhone}
                 </h3>
-                <p className="text-xs text-text-muted">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   +{activeConversation.contactPhone} · {activeConversation.instance.name}
                 </p>
               </div>
@@ -390,7 +390,7 @@ export default function WhatsAppPage() {
                   onClick={() => setView("conversations")}
                   className="p-1.5 rounded-lg hover:bg-gray-100 transition"
                 >
-                  <svg className="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -407,10 +407,10 @@ export default function WhatsAppPage() {
                   <div
                     className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
                       msg.sender === "contact"
-                        ? "bg-white text-text-dark rounded-bl-md"
+                        ? "bg-white text-gray-800 dark:text-white/90 rounded-bl-md"
                         : msg.sender === "ai"
                           ? "bg-purple-100 text-purple-900 rounded-br-md"
-                          : "bg-primary text-white rounded-br-md"
+                          : "bg-brand-500 text-white rounded-br-md"
                     }`}
                   >
                     {msg.sender !== "contact" && (
@@ -428,7 +428,7 @@ export default function WhatsAppPage() {
             </div>
 
             {/* Message input */}
-            <div className="px-4 py-3 border-t border-gray-50">
+            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
               <div className="flex gap-2">
                 <input
                   value={newMessage}
@@ -440,7 +440,7 @@ export default function WhatsAppPage() {
                 <button
                   onClick={handleSendMessage}
                   disabled={sending || !newMessage.trim()}
-                  className="px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition disabled:opacity-50"
+                  className="px-4 py-2.5 bg-brand-500 text-white rounded-xl hover:bg-brand-500-dark transition disabled:opacity-50"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -473,7 +473,7 @@ function StatusDot({ status }: { status: string }) {
   return (
     <div className="flex items-center gap-1.5">
       <div className={`w-2 h-2 rounded-full ${colors[status] || "bg-gray-300"}`} />
-      <span className="text-xs text-text-muted">{labels[status] || status}</span>
+      <span className="text-xs text-gray-500 dark:text-gray-400">{labels[status] || status}</span>
     </div>
   );
 }
@@ -497,10 +497,10 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
   }
 
   return (
-    <div className="mb-5 bg-white rounded-2xl p-6 shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-50">
+    <div className="mb-5 bg-white rounded-2xl p-6 shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-200 dark:border-gray-800">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-text-dark">Nova Instância WhatsApp</h3>
-        <button onClick={onClose} className="text-text-muted hover:text-text-dark">
+        <h3 className="font-semibold text-gray-800 dark:text-white/90">Nova Instância WhatsApp</h3>
+        <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:text-white/90">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -508,22 +508,22 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-text-muted mb-1">Nome da instância</label>
+          <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nome da instância</label>
           <input value={name} onChange={(e) => setName(e.target.value)}
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             placeholder="Ex: Atendimento Principal" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-text-muted mb-1">Mensagem de boas-vindas (opcional)</label>
+          <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Mensagem de boas-vindas (opcional)</label>
           <textarea value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} rows={2}
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
             placeholder="Olá! Bem-vindo, como posso ajudar?" />
         </div>
         <div className="flex gap-2">
-          <button type="submit" disabled={saving} className="px-5 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary-dark transition disabled:opacity-50">
+          <button type="submit" disabled={saving} className="px-5 py-2.5 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-500-dark transition disabled:opacity-50">
             {saving ? "Criando..." : "Criar Instância"}
           </button>
-          <button type="button" onClick={onClose} className="px-5 py-2.5 bg-gray-100 text-text-muted rounded-xl text-sm hover:bg-gray-200 transition">
+          <button type="button" onClick={onClose} className="px-5 py-2.5 bg-gray-100 text-gray-500 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-200 transition">
             Cancelar
           </button>
         </div>
@@ -553,10 +553,10 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
   }
 
   return (
-    <div className="mb-5 bg-white rounded-2xl p-6 shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-50">
+    <div className="mb-5 bg-white rounded-2xl p-6 shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-200 dark:border-gray-800">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-text-dark">Configurar: {instance.name}</h3>
-        <button onClick={onClose} className="text-text-muted hover:text-text-dark">
+        <h3 className="font-semibold text-gray-800 dark:text-white/90">Configurar: {instance.name}</h3>
+        <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:text-white/90">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -564,12 +564,12 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-text-muted mb-1">Nome</label>
+          <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nome</label>
           <input value={name} onChange={(e) => setName(e.target.value)}
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-text-muted mb-1">Mensagem de boas-vindas</label>
+          <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Mensagem de boas-vindas</label>
           <textarea value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} rows={2}
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
         </div>
@@ -577,17 +577,17 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
         {/* AI Config */}
         <div className="border-t border-gray-100 pt-4">
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-semibold text-text-dark">Agente de IA</label>
+            <label className="text-sm font-semibold text-gray-800 dark:text-white/90">Agente de IA</label>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" checked={aiEnabled} onChange={(e) => setAiEnabled(e.target.checked)} className="sr-only peer" />
-              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-500"></div>
             </label>
           </div>
 
           {aiEnabled && (
             <>
               <div className="mb-3">
-                <label className="block text-sm font-medium text-text-muted mb-1">Modelo</label>
+                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Modelo</label>
                 <select value={aiModel} onChange={(e) => setAiModel(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                   <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (rápido)</option>
@@ -596,9 +596,9 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-text-muted mb-1">
+                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
                   Prompt de treinamento
-                  <span className="text-text-muted font-normal"> — instrua a IA sobre como responder</span>
+                  <span className="text-gray-500 dark:text-gray-400 font-normal"> — instrua a IA sobre como responder</span>
                 </label>
                 <textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} rows={6}
                   className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none font-mono"
@@ -613,10 +613,10 @@ Se não souber, transfira para um humano.`} />
         </div>
 
         <div className="flex gap-2 pt-2">
-          <button type="submit" disabled={saving} className="px-5 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary-dark transition disabled:opacity-50">
+          <button type="submit" disabled={saving} className="px-5 py-2.5 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-500-dark transition disabled:opacity-50">
             {saving ? "Salvando..." : "Salvar Configurações"}
           </button>
-          <button type="button" onClick={onClose} className="px-5 py-2.5 bg-gray-100 text-text-muted rounded-xl text-sm hover:bg-gray-200 transition">
+          <button type="button" onClick={onClose} className="px-5 py-2.5 bg-gray-100 text-gray-500 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-200 transition">
             Cancelar
           </button>
         </div>
