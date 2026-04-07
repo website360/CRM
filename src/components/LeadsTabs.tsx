@@ -26,8 +26,7 @@ export default function LeadsTabs({ leads }: { leads: Lead[] }) {
   const filtered = leads.filter((lead) => {
     if (activeTab === "all") return true;
     if (activeTab === "whatsapp") return lead.status === "whatsapp";
-    if (activeTab === "forms") return lead.status !== "whatsapp";
-    return true;
+    return lead.status !== "whatsapp";
   });
 
   const counts = {
@@ -37,148 +36,77 @@ export default function LeadsTabs({ leads }: { leads: Lead[] }) {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-50">
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
       {/* Tabs */}
-      <div className="px-6 pt-5 pb-0 border-b border-gray-50">
-        <div className="flex items-center gap-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-xl transition-all border-b-2 -mb-px ${
-                activeTab === tab.key
-                  ? "border-primary text-primary bg-primary/5"
-                  : "border-transparent text-text-muted hover:text-text-dark hover:bg-gray-50"
-              }`}
-            >
-              {tab.key === "whatsapp" && <WhatsAppIcon />}
-              {tab.key === "forms" && <FormIcon />}
-              {tab.label}
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                  activeTab === tab.key
-                    ? "bg-primary/10 text-primary"
-                    : "bg-gray-100 text-text-muted"
-                }`}
-              >
-                {counts[tab.key as keyof typeof counts]}
-              </span>
-            </button>
-          ))}
-        </div>
+      <div className="flex items-center gap-1 border-b border-gray-200 px-4 pt-4 sm:px-6">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition ${
+              activeTab === tab.key
+                ? "border-brand-500 text-brand-500"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            {tab.label}
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+              activeTab === tab.key ? "bg-brand-50 text-brand-500" : "bg-gray-100 text-gray-500"
+            }`}>
+              {counts[tab.key as keyof typeof counts]}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Table */}
-      <div className="overflow-auto">
-        <table className="w-full text-sm">
+      <div className="w-full overflow-x-auto px-4 pb-3 sm:px-6">
+        <table className="min-w-full">
           <thead>
-            <tr className="text-left text-text-muted text-xs uppercase tracking-wider">
-              <th className="px-6 py-4 font-medium">Nome</th>
-              <th className="px-6 py-4 font-medium">Email</th>
-              {activeTab !== "whatsapp" && (
-                <th className="px-6 py-4 font-medium">Telefone</th>
-              )}
-              <th className="px-6 py-4 font-medium">Fonte</th>
-              <th className="px-6 py-4 font-medium">Status</th>
-              <th className="px-6 py-4 font-medium">
-                {activeTab === "whatsapp" ? "Detalhes" : "Extras"}
-              </th>
-              <th className="px-6 py-4 font-medium">Data</th>
+            <tr className="border-b border-gray-100">
+              <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500">Nome</p></th>
+              <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500">Email</p></th>
+              {activeTab !== "whatsapp" && <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500">Telefone</p></th>}
+              <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500">Fonte</p></th>
+              <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500">Status</p></th>
+              <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500">{activeTab === "whatsapp" ? "Detalhes" : "Extras"}</p></th>
+              <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500">Data</p></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100">
             {filtered.length === 0 ? (
               <tr>
-                <td
-                  colSpan={activeTab === "whatsapp" ? 6 : 7}
-                  className="px-6 py-16 text-center"
-                >
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center">
-                      {activeTab === "whatsapp" ? (
-                        <WhatsAppIcon size={28} muted />
-                      ) : (
-                        <svg
-                          className="w-7 h-7 text-gray-300"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                      )}
-                    </div>
-                    <p className="text-text-muted">
-                      {activeTab === "whatsapp"
-                        ? "Nenhum clique no WhatsApp registrado."
-                        : activeTab === "forms"
-                          ? "Nenhum lead de formulário ainda."
-                          : "Nenhum lead cadastrado ainda."}
-                    </p>
-                  </div>
+                <td colSpan={activeTab === "whatsapp" ? 6 : 7} className="py-16 text-center">
+                  <p className="text-sm text-gray-500">
+                    {activeTab === "whatsapp" ? "Nenhum clique no WhatsApp registrado." : activeTab === "forms" ? "Nenhum lead de formulário ainda." : "Nenhum lead cadastrado ainda."}
+                  </p>
                 </td>
               </tr>
             ) : (
               filtered.map((lead) => (
-                <tr
-                  key={lead.id}
-                  className="border-t border-gray-50 hover:bg-gray-50/50 transition"
-                >
-                  <td className="px-6 py-4">
+                <tr key={lead.id}>
+                  <td className="py-3">
                     <div className="flex items-center gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          lead.status === "whatsapp"
-                            ? "bg-green-50"
-                            : "bg-primary/10"
-                        }`}
-                      >
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${lead.status === "whatsapp" ? "bg-success-50" : "bg-gray-100"}`}>
                         {lead.status === "whatsapp" ? (
-                          <WhatsAppIcon size={14} />
+                          <svg className="fill-success-500" width="16" height="16" viewBox="0 0 24 24"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.07-.3-.14-1.26-.46-2.4-1.47-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51-.17 0-.37-.01-.57-.01-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35"/></svg>
                         ) : (
-                          <span className="text-primary text-xs font-bold">
-                            {lead.name.charAt(0).toUpperCase()}
-                          </span>
+                          <span className="text-sm font-semibold text-gray-700">{lead.name.charAt(0).toUpperCase()}</span>
                         )}
                       </div>
-                      <span className="font-medium text-text-dark">
-                        {lead.name}
-                      </span>
+                      <p className="text-sm font-medium text-gray-800">{lead.name}</p>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-text-muted">
-                    {lead.email.endsWith("@click.track") ? (
-                      <span className="text-xs text-text-muted italic">
-                        anônimo
-                      </span>
-                    ) : (
-                      lead.email
-                    )}
+                  <td className="py-3">
+                    <p className="text-sm text-gray-500">
+                      {lead.email.endsWith("@click.track") ? <span className="italic">anônimo</span> : lead.email}
+                    </p>
                   </td>
-                  {activeTab !== "whatsapp" && (
-                    <td className="px-6 py-4 text-text-muted">
-                      {lead.phone ?? "-"}
-                    </td>
-                  )}
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 bg-bg-body rounded-lg text-xs font-medium text-text-muted">
-                      {lead.source}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <StatusBadge status={lead.status} />
-                  </td>
-                  <td className="px-6 py-4">
-                    <MetadataCell metadata={lead.metadata} notes={lead.notes} />
-                  </td>
-                  <td className="px-6 py-4 text-text-muted text-xs">
-                    {new Date(lead.createdAt).toLocaleString("pt-BR")}
-                  </td>
+                  {activeTab !== "whatsapp" && <td className="py-3"><p className="text-sm text-gray-500">{lead.phone ?? "-"}</p></td>}
+                  <td className="py-3"><p className="text-sm text-gray-500">{lead.source}</p></td>
+                  <td className="py-3"><StatusBadge status={lead.status} /></td>
+                  <td className="py-3"><MetadataCell metadata={lead.metadata} notes={lead.notes} /></td>
+                  <td className="py-3"><p className="text-sm text-gray-500">{new Date(lead.createdAt).toLocaleString("pt-BR")}</p></td>
                 </tr>
               ))
             )}
@@ -189,97 +117,28 @@ export default function LeadsTabs({ leads }: { leads: Lead[] }) {
   );
 }
 
-function MetadataCell({
-  metadata,
-  notes,
-}: {
-  metadata: unknown;
-  notes: string | null;
-}) {
+function MetadataCell({ metadata, notes }: { metadata: unknown; notes: string | null }) {
   const meta = metadata as Record<string, string> | null;
   const entries = meta ? Object.entries(meta) : [];
-  const hasData = entries.length > 0 || notes;
-
-  if (!hasData) return <span className="text-text-muted">-</span>;
-
+  if (!entries.length && !notes) return <span className="text-sm text-gray-400">-</span>;
   return (
-    <div className="space-y-1 max-w-xs">
-      {notes && (
-        <div className="text-xs">
-          <span className="font-medium text-text-dark">notas:</span>{" "}
-          <span className="text-text-muted">{notes}</span>
-        </div>
-      )}
-      {entries.map(([key, value]) => (
-        <div key={key} className="text-xs">
-          <span className="font-medium text-text-dark">{key}:</span>{" "}
-          <span className="text-text-muted">{String(value)}</span>
-        </div>
-      ))}
+    <div className="space-y-0.5 max-w-xs">
+      {notes && <p className="text-xs text-gray-500"><span className="font-medium text-gray-700">notas:</span> {notes}</p>}
+      {entries.map(([k, v]) => <p key={k} className="text-xs text-gray-500"><span className="font-medium text-gray-700">{k}:</span> {String(v)}</p>)}
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    new: "bg-primary/10 text-primary",
-    whatsapp: "bg-green-50 text-green-600",
+    new: "bg-brand-50 text-brand-500",
+    whatsapp: "bg-success-50 text-success-600",
     contacted: "bg-blue-50 text-blue-600",
-    qualified: "bg-orange-50 text-orange-600",
-    converted: "bg-purple-50 text-purple-600",
+    qualified: "bg-warning-50 text-warning-600",
+    converted: "bg-success-50 text-success-600",
   };
-
   const labels: Record<string, string> = {
-    new: "Novo",
-    whatsapp: "WhatsApp",
-    contacted: "Contatado",
-    qualified: "Qualificado",
-    converted: "Convertido",
+    new: "Novo", whatsapp: "WhatsApp", contacted: "Contatado", qualified: "Qualificado", converted: "Convertido",
   };
-
-  return (
-    <span
-      className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${styles[status] || "bg-gray-100 text-gray-600"}`}
-    >
-      {labels[status] || status}
-    </span>
-  );
-}
-
-function WhatsAppIcon({
-  size = 14,
-  muted = false,
-}: {
-  size?: number;
-  muted?: boolean;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={muted ? "text-gray-300" : "text-green-500"}
-    >
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-    </svg>
-  );
-}
-
-function FormIcon() {
-  return (
-    <svg
-      className="w-3.5 h-3.5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-      />
-    </svg>
-  );
+  return <p className={`rounded-full px-2 py-0.5 text-xs font-medium inline-block ${styles[status] || "bg-gray-100 text-gray-600"}`}>{labels[status] || status}</p>;
 }

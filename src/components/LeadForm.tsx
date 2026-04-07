@@ -18,122 +18,69 @@ export default function LeadForm() {
     event.preventDefault();
     setError("");
     setSuccess("");
-
-    if (!name.trim() || !email.trim()) {
-      setError("Nome e email são obrigatórios");
-      return;
-    }
-
+    if (!name.trim() || !email.trim()) { setError("Nome e email são obrigatórios"); return; }
     setSaving(true);
-
     try {
-      const res = await fetch("/api/leads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, phone, source }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Erro ao criar lead");
-      }
-
+      const res = await fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, phone, source }) });
+      if (!res.ok) { const data = await res.json(); throw new Error(data.error || "Erro ao criar lead"); }
       setSuccess("Lead criado com sucesso!");
-      setName("");
-      setEmail("");
-      setPhone("");
-      setSource("");
-      setIsOpen(false);
+      setName(""); setEmail(""); setPhone(""); setSource(""); setIsOpen(false);
       router.refresh();
     } catch (err) {
-      if (err instanceof Error) setError(err.message);
-      else setError("Erro desconhecido");
-    } finally {
-      setSaving(false);
-    }
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally { setSaving(false); }
+  }
+
+  if (!isOpen) {
+    return (
+      <button onClick={() => setIsOpen(true)}
+        className="mb-5 inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 transition">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+        Cadastrar novo Lead
+      </button>
+    );
   }
 
   return (
-    <div className="mb-6">
-      {!isOpen ? (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-semibold px-5 py-3 rounded-xl transition shadow-sm"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Cadastrar novo Lead
+    <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-5 md:p-6">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-lg font-semibold text-gray-800">Cadastrar novo Lead</h3>
+        <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-700 transition">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
-      ) : (
-        <div className="bg-white rounded-2xl p-6 shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-50">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-text-dark">Cadastrar novo Lead</h2>
-            <button onClick={() => setIsOpen(false)} className="text-text-muted hover:text-text-dark transition">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-text-muted mb-1.5">Nome</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                placeholder="Nome do lead"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-muted mb-1.5">Email</label>
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                type="email"
-                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                placeholder="Email"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-muted mb-1.5">Telefone</label>
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                placeholder="Telefone"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-muted mb-1.5">Fonte</label>
-              <input
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                placeholder="Landing page, campanha etc."
-              />
-            </div>
-            <div className="md:col-span-2 flex items-center gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition disabled:opacity-50 text-sm"
-              >
-                {saving ? "Salvando..." : "Salvar Lead"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="px-6 py-2.5 rounded-xl bg-gray-100 text-text-muted font-medium hover:bg-gray-200 transition text-sm"
-              >
-                Cancelar
-              </button>
-              {error && <span className="text-sm text-red-500">{error}</span>}
-              {success && <span className="text-sm text-primary">{success}</span>}
-            </div>
-          </form>
+      </div>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do lead"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition" />
         </div>
-      )}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Email</label>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition" />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Telefone</label>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Telefone"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition" />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Fonte</label>
+          <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="Landing page, campanha..."
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition" />
+        </div>
+        <div className="md:col-span-2 flex items-center gap-3 pt-1">
+          <button type="submit" disabled={saving} className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition disabled:opacity-50">
+            {saving ? "Salvando..." : "Salvar Lead"}
+          </button>
+          <button type="button" onClick={() => setIsOpen(false)} className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+            Cancelar
+          </button>
+          {error && <span className="text-sm text-error-500">{error}</span>}
+          {success && <span className="text-sm text-success-500">{success}</span>}
+        </div>
+      </form>
     </div>
   );
 }
