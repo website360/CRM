@@ -60,12 +60,12 @@ export default function WhatsAppPage() {
     if (res.ok) setInstances(await res.json());
   }, []);
 
-  const loadConversations = useCallback(async (instanceId?: number | null) => {
-    const url = instanceId
-      ? `/api/inbox?instanceId=${instanceId}`
+  const loadConversations = useCallback(async (channelId?: number | null) => {
+    const url = channelId
+      ? `/api/inbox?channelId=${channelId}`
       : "/api/inbox";
     const res = await fetch(url);
-    setConversations(await res.json());
+    if (res.ok) setConversations(await res.json());
   }, []);
 
   const loadChat = useCallback(async (conversationId: number) => {
