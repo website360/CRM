@@ -500,6 +500,7 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
   const [widgetSubtitle, setWidgetSubtitle] = useState("Estamos online");
   const [agentName, setAgentName] = useState("Atendente");
   const [agentAvatar, setAgentAvatar] = useState("");
+  const [closeMessage, setCloseMessage] = useState("Obrigado pelo contato! Até a próxima.");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -508,7 +509,7 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
     setSaving(true);
     let config: Record<string, unknown> | undefined;
     if (type === "instagram") config = { accessToken, pageId };
-    if (type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null };
+    if (type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null, closeMessage };
     await fetch("/api/channels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -580,6 +581,13 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
                 placeholder="https://exemplo.com/foto.jpg (opcional)" />
               <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Aparece ao lado das mensagens do atendente/IA no widget</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Mensagem de encerramento</label>
+              <input value={closeMessage} onChange={(e) => setCloseMessage(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                placeholder="Obrigado pelo contato! Até a próxima." />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Enviada ao cliente quando o atendente encerra a conversa</p>
             </div>
           </>
         )}

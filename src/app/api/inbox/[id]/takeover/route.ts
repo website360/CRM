@@ -15,6 +15,30 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Nenhuma alteração válida' }, { status: 400 });
   }
 
+  // If closing, send close message if configured
+  if (data.status === 'closed') {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: parseInt(id) },
+      include: { channel: true },
+    });
+
+    if (conversation) {
+      const config = (conversation.channel.config || {}) as Record<string, string>;
+      const closeMessage = config.closeMessage || null;
+
+      if (closeMessage) {
+        // Save close message in conversation
+        await prisma.message.create({
+          data: {
+            conversationId: conversation.id,
+            sender: 'human',
+            content: closeMessage,
+          },
+        });
+      }
+    }
+  }
+
   const conversation = await prisma.conversation.update({
     where: { id: parseInt(id) },
     data,
