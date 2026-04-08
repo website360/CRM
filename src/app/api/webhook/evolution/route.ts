@@ -65,10 +65,57 @@ export async function POST(request: NextRequest) {
     if (!data || data.key?.fromMe) return NextResponse.json({ ok: true });
 
     const senderPhone = data.key?.remoteJid?.replace('@s.whatsapp.net', '') || '';
-    const text = data.message?.conversation || data.message?.extendedTextMessage?.text || '';
-    if (!senderPhone || !text || senderPhone.includes('@g.us')) return NextResponse.json({ ok: true });
+    if (!senderPhone || senderPhone.includes('@g.us')) return NextResponse.json({ ok: true });
+
+    // Extract text from various message types
+    const msg = data.message || {};
+    let text = msg.conversation || msg.extendedTextMessage?.text || msg.imageMessage?.caption || '';
+    let mediaUrl: string | null = null;
+    let mediaType: string | null = null;
+
+    // Handle images
+    if (msg.imageMessage) {
+      mediaType = 'image';
+      mediaUrl = msg.imageMessage.url || msg.imageMessage.directPath || null;
+      // Evolution may provide base64
+      if (!mediaUrl && data.base64) {
+        mediaUrl = `data:${msg.imageMessage.mimetype || 'image/jpeg'};base64,${data.base64}`;
+      }
+    }
+
+    // Handle stickers
+    if (msg.stickerMessage) {
+      mediaType = 'sticker';
+      mediaUrl = msg.stickerMessage.url || msg.stickerMessage.directPath || null;
+      if (!mediaUrl && data.base64) {
+        mediaUrl = `data:image/webp;base64,${data.base64}`;
+      }
+      if (!text) text = '[Figurinha]';
+    }
+
+    // Handle video
+    if (msg.videoMessage) {
+      mediaType = 'video';
+      text = text || '[Vídeo]';
+    }
+
+    // Handle audio
+    if (msg.audioMessage) {
+      mediaType = 'audio';
+      text = text || '[Áudio]';
+    }
+
+    // Handle document
+    if (msg.documentMessage) {
+      mediaType = 'document';
+      text = text || `[Documento: ${msg.documentMessage.fileName || 'arquivo'}]`;
+    }
+
+    // Skip if no content at all
+    if (!text && !mediaUrl) return NextResponse.json({ ok: true });
 
     const senderName = data.pushName || senderPhone;
+    const senderProfilePic = data.profilePicUrl || null;
 
     const channels = await prisma.channel.findMany({
       where: { type: 'whatsapp', status: 'connected' },
@@ -86,13 +133,27 @@ export async function POST(request: NextRequest) {
 
     if (!conversation) {
       conversation = await prisma.conversation.create({
-        data: { channelId: channel.id, contactId: senderPhone, contactName: senderName, mode: channel.aiEnabled ? 'ai' : 'human', status: 'open' },
+        data: { channelId: channel.id, contactId: senderPhone, contactName: senderName, contactAvatar: senderProfilePic, mode: channel.aiEnabled ? 'ai' : 'human', status: 'open' },
       });
-    } else if (senderName !== senderPhone && conversation.contactName !== senderName) {
-      await prisma.conversation.update({ where: { id: conversation.id }, data: { contactName: senderName } });
+    } else {
+      const updates: Record<string, unknown> = {};
+      if (senderName !== senderPhone && conversation.contactName !== senderName) updates.contactName = senderName;
+      if (senderProfilePic && !conversation.contactAvatar) updates.contactAvatar = senderProfilePic;
+      if (Object.keys(updates).length > 0) await prisma.conversation.update({ where: { id: conversation.id }, data: updates });
     }
 
-    await prisma.message.create({ data: { conversationId: conversation.id, sender: 'contact', content: text } });
+    // Auto-create/update contact
+    const existingContact = await prisma.lead.findFirst({ where: { phone: senderPhone } });
+    if (!existingContact) {
+      await prisma.lead.create({
+        data: { name: senderName, email: `${senderPhone}@whatsapp.contact`, phone: senderPhone, source: `whatsapp-${channel.name}`, status: 'new' },
+      }).catch(() => {}); // ignore duplicate email
+    } else if (existingContact.name === existingContact.phone && senderName !== senderPhone) {
+      await prisma.lead.update({ where: { id: existingContact.id }, data: { name: senderName } }).catch(() => {});
+    }
+
+    const content = mediaUrl ? `[imagem: ${mediaUrl}]` : text;
+    await prisma.message.create({ data: { conversationId: conversation.id, sender: 'contact', content, mediaUrl, mediaType } });
     await prisma.conversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date(), unread: { increment: 1 } } });
 
     // AI or welcome reply

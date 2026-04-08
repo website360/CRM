@@ -110,15 +110,12 @@ export default function InboxPage() {
       const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
       const { url } = await uploadRes.json();
       if (url) {
-        const proto = window.location.protocol;
-        const host = window.location.host;
-        const fullUrl = url.startsWith('/') ? `${proto}//${host}${url}` : url;
-        const imgMsg = `[imagem: ${fullUrl}]`;
+        const fullUrl = url.startsWith('/') ? `${window.location.origin}${url}` : url;
         await fetch(`/api/inbox/${activeChat.id}/send`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: imgMsg }),
+          body: JSON.stringify({ mediaUrl: fullUrl, mediaType: "image" }),
         });
-        loadChat(activeChat.id);
+        loadChat(activeChat.id); loadConversations();
       }
     } catch {} finally { setUploading(false); }
   }
@@ -255,7 +252,8 @@ export default function InboxPage() {
                     {activeChat.contactName || (activeChat.contactId.startsWith('v_') ? 'Visitante' : activeChat.contactId)}
                   </h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {activeChat.channel.name}{activeChat.channel.type === "whatsapp" ? ` · +${activeChat.contactId}` : activeChat.contactId.startsWith('v_') ? '' : ` · ${activeChat.contactId}`}
+                    {activeChat.channel.name}
+                    {activeChat.channel.type === "whatsapp" && !activeChat.contactId.includes('@') && ` · +${activeChat.contactId}`}
                   </p>
                 </div>
               </div>

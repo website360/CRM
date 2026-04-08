@@ -745,6 +745,9 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
   const [agentName, setAgentName] = useState(cfg.agentName || "Atendente");
   const [agentAvatar, setAgentAvatar] = useState(cfg.agentAvatar || "");
   const [closeMessage, setCloseMessage] = useState(cfg.closeMessage || "Obrigado pelo contato! Até a próxima.");
+  // Signature
+  const [signatureEnabled, setSignatureEnabled] = useState(cfg.signatureEnabled === 'true');
+  const [signature, setSignature] = useState(cfg.signature || "");
   // Instagram fields
   const [accessToken, setAccessToken] = useState(cfg.accessToken || "");
   const [pageId, setPageId] = useState(cfg.pageId || "");
@@ -755,15 +758,16 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    const sigFields = { signatureEnabled: String(signatureEnabled), signature };
     let config: Record<string, unknown> | undefined;
     if (instance.type === "whatsapp") {
-      if (cfg.provider === 'meta') config = { provider: 'meta', accessToken, phoneNumberId: cfg.phoneNumberId || '' };
-      else if (cfg.provider === 'zapi') config = { provider: 'zapi', instanceId: cfg.instanceId || '', token: accessToken };
-      else if (cfg.provider === 'evolution') config = { ...cfg, provider: 'evolution' };
-      else config = { provider: 'meta', accessToken, phoneNumberId: cfg.phoneNumberId || '' };
+      if (cfg.provider === 'meta') config = { provider: 'meta', accessToken, phoneNumberId: cfg.phoneNumberId || '', ...sigFields };
+      else if (cfg.provider === 'zapi') config = { provider: 'zapi', instanceId: cfg.instanceId || '', token: accessToken, ...sigFields };
+      else if (cfg.provider === 'evolution') config = { ...cfg, provider: 'evolution', ...sigFields };
+      else config = { provider: 'meta', accessToken, phoneNumberId: cfg.phoneNumberId || '', ...sigFields };
     }
-    if (instance.type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null, closeMessage };
-    if (instance.type === "instagram") config = { accessToken, pageId };
+    if (instance.type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null, closeMessage, ...sigFields };
+    if (instance.type === "instagram") config = { accessToken, pageId, ...sigFields };
     await fetch(`/api/channels/${instance.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -884,6 +888,26 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
             </div>
           </div>
         )}
+
+        {/* Signature */}
+        <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-sm font-semibold text-gray-800 dark:text-white/90">Assinatura de Mensagem</label>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" checked={signatureEnabled} onChange={(e) => setSignatureEnabled(e.target.checked)} className="sr-only peer" />
+              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-500" />
+            </label>
+          </div>
+          {signatureEnabled && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Texto da assinatura</label>
+              <textarea value={signature} onChange={(e) => setSignature(e.target.value)} rows={2}
+                className={inputCls + " resize-none"}
+                placeholder="Atenciosamente, Equipe Agência May" />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Adicionada ao final de cada mensagem enviada pelo atendente</p>
+            </div>
+          )}
+        </div>
 
         {/* AI Config */}
         <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
