@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
     if (!channel || channel.type !== 'webchat') return cors({ error: 'Canal não encontrado' }, { status: 404 });
 
     const config = (channel.config || {}) as Record<string, unknown>;
-    const baseUrl = request.nextUrl.origin;
+    const proto = request.headers.get('x-forwarded-proto') || 'https';
+    const host = request.headers.get('host') || request.nextUrl.host;
+    const baseUrl = `${proto}://${host}`;
     const avatarPath = config.agentAvatar as string | null;
     const agentAvatarUrl = avatarPath && avatarPath.startsWith('/') ? `${baseUrl}${avatarPath}` : avatarPath;
 
