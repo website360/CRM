@@ -19,18 +19,20 @@ export async function sendWhatsAppMessage(
       }),
     });
   } else if (provider === 'zapi') {
-    const instanceId = config.instanceId;
-    const token = config.token;
-    await fetch(`https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`, {
+    await fetch(`https://api.z-api.io/instances/${config.instanceId}/token/${config.token}/send-text`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: to, message: text }),
     });
   } else if (provider === 'evolution') {
-    const serverUrl = config.serverUrl.replace(/\/$/, '');
-    await fetch(`${serverUrl}/message/sendText/${config.instanceName}`, {
+    // Evolution uses server credentials from env
+    const serverUrl = (process.env.EVOLUTION_API_URL || '').replace(/\/$/, '');
+    const apiKey = process.env.EVOLUTION_API_KEY || '';
+    const instanceName = config.instanceName || '';
+
+    await fetch(`${serverUrl}/message/sendText/${instanceName}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: config.apiKey },
+      headers: { 'Content-Type': 'application/json', apikey: apiKey },
       body: JSON.stringify({ number: to, text }),
     });
   }

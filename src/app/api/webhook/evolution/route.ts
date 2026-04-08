@@ -2,34 +2,81 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendWhatsAppMessage } from '@/lib/whatsapp/send';
 
-// POST - Receive messages from Evolution API webhook
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const instanceName = body.instance || '';
 
-    // Evolution sends: { event, instance, data: { key, pushName, message: { conversation }, ... } }
-    if (body.event !== 'messages.upsert') return NextResponse.json({ ok: true });
+    // Handle CONNECTION_UPDATE - detect when QR is scanned
+    if (body.event === 'connection.update' || body.event === 'CONNECTION_UPDATE') {
+      const state = body.data?.state || body.data?.status || '';
+      console.log(`[Evolution] Connection update: ${instanceName} -> ${state}`);
+
+      const channels = await prisma.channel.findMany({
+        where: { type: 'whatsapp', status: { in: ['qr_code', 'disconnected'] } },
+      });
+      const channel = channels.find((ch) => {
+        const cfg = ch.config as Record<string, string> | null;
+        return cfg?.provider === 'evolution' && cfg.instanceName === instanceName;
+      });
+
+      if (channel) {
+        if (state === 'open' || state === 'connected') {
+          await prisma.channel.update({
+            where: { id: channel.id },
+            data: { status: 'connected', config: { ...(channel.config as object), qrCode: null } },
+          });
+          console.log(`[Evolution] ${instanceName} connected!`);
+        } else if (state === 'close' || state === 'disconnected') {
+          await prisma.channel.update({
+            where: { id: channel.id },
+            data: { status: 'disconnected', config: { ...(channel.config as object), qrCode: null } },
+          });
+        }
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    // Handle QRCODE_UPDATED
+    if (body.event === 'qrcode.updated' || body.event === 'QRCODE_UPDATED') {
+      const qrCode = body.data?.qrcode?.base64 || body.data?.base64 || null;
+      if (qrCode) {
+        const channels = await prisma.channel.findMany({ where: { type: 'whatsapp' } });
+        const channel = channels.find((ch) => {
+          const cfg = ch.config as Record<string, string> | null;
+          return cfg?.provider === 'evolution' && cfg.instanceName === instanceName;
+        });
+        if (channel) {
+          await prisma.channel.update({
+            where: { id: channel.id },
+            data: { status: 'qr_code', config: { ...(channel.config as object), qrCode } },
+          });
+        }
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    // Handle MESSAGES_UPSERT
+    if (body.event !== 'messages.upsert' && body.event !== 'MESSAGES_UPSERT') {
+      return NextResponse.json({ ok: true });
+    }
 
     const data = body.data;
     if (!data || data.key?.fromMe) return NextResponse.json({ ok: true });
 
     const senderPhone = data.key?.remoteJid?.replace('@s.whatsapp.net', '') || '';
     const text = data.message?.conversation || data.message?.extendedTextMessage?.text || '';
-    if (!senderPhone || !text) return NextResponse.json({ ok: true });
+    if (!senderPhone || !text || senderPhone.includes('@g.us')) return NextResponse.json({ ok: true });
 
     const senderName = data.pushName || senderPhone;
-    const instanceName = body.instance || '';
 
-    // Find channel
     const channels = await prisma.channel.findMany({
       where: { type: 'whatsapp', status: 'connected' },
     });
-
     const channel = channels.find((ch) => {
-      const config = ch.config as Record<string, string> | null;
-      return config?.provider === 'evolution' && config.instanceName === instanceName;
+      const cfg = ch.config as Record<string, string> | null;
+      return cfg?.provider === 'evolution' && cfg.instanceName === instanceName;
     });
-
     if (!channel) return NextResponse.json({ ok: true });
 
     // Get or create conversation

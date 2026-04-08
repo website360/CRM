@@ -216,7 +216,22 @@ export default function WhatsAppPage() {
                       inst.type === 'whatsapp' ? 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500' :
                       inst.type === 'instagram' ? 'bg-pink-50 text-pink-500 dark:bg-pink-500/15 dark:text-pink-400' :
                       'bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400'
-                    }`}>{inst.type}</span>
+                    }`}>{inst.type}{inst.config?.provider === 'evolution' ? ' · QR Code' : inst.config?.provider === 'zapi' ? ' · Z-API' : inst.config?.provider === 'meta' ? ' · Meta API' : ''}</span>
+                  </div>
+                )}
+
+                {/* QR Code for Evolution */}
+                {inst.status === "qr_code" && inst.config?.qrCode && (
+                  <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-center">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 font-medium">Escaneie o QR Code no WhatsApp</p>
+                    <img
+                      src={inst.config.qrCode.startsWith('data:') ? inst.config.qrCode : `data:image/png;base64,${inst.config.qrCode}`}
+                      alt="QR Code"
+                      className="mx-auto rounded-lg"
+                      width={220}
+                      height={220}
+                    />
+                    <p className="text-[11px] text-gray-400 mt-2">Abra WhatsApp &gt; Dispositivos Conectados &gt; Conectar</p>
                   </div>
                 )}
 
@@ -509,13 +524,10 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [pageId, setPageId] = useState("");
-  const [provider, setProvider] = useState("meta"); // meta, zapi, evolution
+  const [provider, setProvider] = useState("evolution"); // evolution (default), meta, zapi
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [zapiInstanceId, setZapiInstanceId] = useState("");
   const [zapiToken, setZapiToken] = useState("");
-  const [evoServerUrl, setEvoServerUrl] = useState("");
-  const [evoApiKey, setEvoApiKey] = useState("");
-  const [evoInstanceName, setEvoInstanceName] = useState("");
   const [widgetColor, setWidgetColor] = useState("#465FFF");
   const [widgetTitle, setWidgetTitle] = useState("Suporte");
   const [widgetSubtitle, setWidgetSubtitle] = useState("Estamos online");
@@ -532,7 +544,7 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
     if (type === "whatsapp") {
       if (provider === "meta") config = { provider: "meta", accessToken, phoneNumberId };
       else if (provider === "zapi") config = { provider: "zapi", instanceId: zapiInstanceId, token: zapiToken };
-      else if (provider === "evolution") config = { provider: "evolution", serverUrl: evoServerUrl, apiKey: evoApiKey, instanceName: evoInstanceName };
+      else if (provider === "evolution") config = { provider: "evolution" };
     }
     if (type === "instagram") config = { accessToken, pageId };
     if (type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null, closeMessage };
@@ -575,9 +587,9 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Provedor</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { key: "meta", label: "Meta Cloud API", desc: "Oficial" },
+                  { key: "evolution", label: "QR Code", desc: "Recomendado" },
+                  { key: "meta", label: "Meta Cloud API", desc: "API Oficial" },
                   { key: "zapi", label: "Z-API", desc: "z-api.io" },
-                  { key: "evolution", label: "Evolution API", desc: "Self-hosted" },
                 ].map((p) => (
                   <button key={p.key} type="button" onClick={() => setProvider(p.key)}
                     className={`px-3 py-3 rounded-lg border text-left transition ${provider === p.key
@@ -627,27 +639,17 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
             )}
 
             {provider === "evolution" && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">URL do Servidor</label>
-                  <input value={evoServerUrl} onChange={(e) => setEvoServerUrl(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
-                    placeholder="https://sua-evolution.com" />
+              <div className="rounded-lg bg-success-50 dark:bg-success-500/10 border border-success-500/20 p-4">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-success-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-success-600 dark:text-success-500">Conexão via QR Code</p>
+                    <p className="text-xs text-success-600/80 dark:text-success-500/80 mt-1">Ao criar o canal, uma instância será criada automaticamente. Você só precisa escanear o QR Code com o WhatsApp para conectar.</p>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">API Key</label>
-                  <input value={evoApiKey} onChange={(e) => setEvoApiKey(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
-                    placeholder="Sua API Key da Evolution" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nome da Instância</label>
-                  <input value={evoInstanceName} onChange={(e) => setEvoInstanceName(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
-                    placeholder="minha-instancia" />
-                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Nome usado na Evolution API para identificar esta conexão</p>
-                </div>
-              </>
+              </div>
             )}
           </>
         )}
@@ -757,7 +759,7 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
     if (instance.type === "whatsapp") {
       if (cfg.provider === 'meta') config = { provider: 'meta', accessToken, phoneNumberId: cfg.phoneNumberId || '' };
       else if (cfg.provider === 'zapi') config = { provider: 'zapi', instanceId: cfg.instanceId || '', token: accessToken };
-      else if (cfg.provider === 'evolution') config = { provider: 'evolution', serverUrl: cfg.serverUrl || '', apiKey: accessToken, instanceName: cfg.instanceName || '' };
+      else if (cfg.provider === 'evolution') config = { ...cfg, provider: 'evolution' };
       else config = { provider: 'meta', accessToken, phoneNumberId: cfg.phoneNumberId || '' };
     }
     if (instance.type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null, closeMessage };
@@ -858,20 +860,12 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
               </>
             )}
             {cfg.provider === 'evolution' && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">URL do Servidor</label>
-                  <input value={cfg.serverUrl || ''} readOnly className={inputCls + " font-mono bg-gray-50 dark:bg-gray-900"} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">API Key</label>
-                  <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)} className={inputCls + " font-mono"} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nome da Instância</label>
-                  <input value={cfg.instanceName || ''} readOnly className={inputCls + " font-mono bg-gray-50 dark:bg-gray-900"} />
-                </div>
-              </>
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Conectado via QR Code (Evolution API)
+                  {cfg.instanceName && <span className="block text-xs text-gray-400 dark:text-gray-500 mt-1 font-mono">Instância: {cfg.instanceName}</span>}
+                </p>
+              </div>
             )}
           </div>
         )}
