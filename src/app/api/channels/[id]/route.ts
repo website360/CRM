@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { waManager } from '@/lib/whatsapp/manager';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -23,10 +22,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const channelId = parseInt(id);
-  const channel = await prisma.channel.findUnique({ where: { id: channelId } });
-  if (channel?.type === 'whatsapp') waManager.disconnect(channelId);
-  await prisma.channel.delete({ where: { id: channelId } });
+  await prisma.channel.delete({ where: { id: parseInt(id) } });
   return NextResponse.json({ ok: true });
 }
 
@@ -37,45 +33,45 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const channel = await prisma.channel.findUnique({ where: { id: channelId } });
   if (!channel) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
 
-  if (channel.type === 'whatsapp') {
-    switch (action) {
-      case 'connect':
-        await waManager.connect(channelId);
-        return NextResponse.json({ ok: true, message: 'Conectando... escaneie o QR Code' });
-      case 'disconnect':
-        waManager.disconnect(channelId);
-        await prisma.channel.update({ where: { id: channelId }, data: { status: 'disconnected' } });
-        return NextResponse.json({ ok: true });
-      case 'logout':
-        await waManager.logout(channelId);
-        return NextResponse.json({ ok: true });
-    }
-  }
+  if (action === 'connect') {
+    const config = channel.config as Record<string, string> | null;
 
-  if (channel.type === 'instagram') {
-    if (action === 'connect') {
-      const config = channel.config as Record<string, string> | null;
-      if (config?.accessToken) {
-        await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
-        return NextResponse.json({ ok: true, message: 'Instagram conectado' });
+    if (channel.type === 'whatsapp') {
+      if (!config?.accessToken || !config?.phoneNumberId) {
+        return NextResponse.json({ error: 'Configure o Access Token e Phone Number ID primeiro' }, { status: 400 });
       }
-      return NextResponse.json({ error: 'Configure o Access Token primeiro' }, { status: 400 });
+      // Verify token works by calling the API
+      try {
+        const res = await fetch(`https://graph.facebook.com/v21.0/${config.phoneNumberId}`, {
+          headers: { Authorization: `Bearer ${config.accessToken}` },
+        });
+        if (!res.ok) {
+          return NextResponse.json({ error: 'Token inválido ou Phone Number ID incorreto' }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: 'Erro ao verificar token' }, { status: 500 });
+      }
+      await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
+      return NextResponse.json({ ok: true, message: 'WhatsApp Cloud API conectado! Configure o webhook no Meta Developer Portal.' });
     }
-    if (action === 'disconnect') {
-      await prisma.channel.update({ where: { id: channelId }, data: { status: 'disconnected' } });
-      return NextResponse.json({ ok: true });
+
+    if (channel.type === 'instagram') {
+      if (!config?.accessToken) {
+        return NextResponse.json({ error: 'Configure o Access Token primeiro' }, { status: 400 });
+      }
+      await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
+      return NextResponse.json({ ok: true, message: 'Instagram conectado' });
+    }
+
+    if (channel.type === 'webchat') {
+      await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
+      return NextResponse.json({ ok: true, message: 'Webchat ativo!' });
     }
   }
 
-  if (channel.type === 'webchat') {
-    if (action === 'connect') {
-      await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
-      return NextResponse.json({ ok: true, message: 'Webchat ativo! Use o widget.js no site do cliente.' });
-    }
-    if (action === 'disconnect') {
-      await prisma.channel.update({ where: { id: channelId }, data: { status: 'disconnected' } });
-      return NextResponse.json({ ok: true });
-    }
+  if (action === 'disconnect') {
+    await prisma.channel.update({ where: { id: channelId }, data: { status: 'disconnected' } });
+    return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ error: 'Ação inválida' }, { status: 400 });

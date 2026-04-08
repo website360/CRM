@@ -209,17 +209,14 @@ export default function WhatsAppPage() {
                   <StatusDot status={inst.status} />
                 </div>
 
-                {/* QR Code */}
-                {inst.status === "qr_code" && inst.qrCode && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-xl text-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Escaneie o QR Code no WhatsApp</p>
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(inst.qrCode)}`}
-                      alt="QR Code"
-                      className="mx-auto rounded"
-                      width={200}
-                      height={200}
-                    />
+                {/* Channel type badge */}
+                {inst.type && (
+                  <div className="mb-3">
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded ${
+                      inst.type === 'whatsapp' ? 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500' :
+                      inst.type === 'instagram' ? 'bg-pink-50 text-pink-500 dark:bg-pink-500/15 dark:text-pink-400' :
+                      'bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400'
+                    }`}>{inst.type}</span>
                   </div>
                 )}
 
@@ -512,6 +509,7 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [pageId, setPageId] = useState("");
+  const [phoneNumberId, setPhoneNumberId] = useState("");
   const [widgetColor, setWidgetColor] = useState("#465FFF");
   const [widgetTitle, setWidgetTitle] = useState("Suporte");
   const [widgetSubtitle, setWidgetSubtitle] = useState("Estamos online");
@@ -525,6 +523,7 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
     if (!name.trim()) return;
     setSaving(true);
     let config: Record<string, unknown> | undefined;
+    if (type === "whatsapp") config = { accessToken, phoneNumberId };
     if (type === "instagram") config = { accessToken, pageId };
     if (type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null, closeMessage };
     await fetch("/api/channels", {
@@ -560,6 +559,24 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
             className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
             placeholder={type === "whatsapp" ? "Ex: Atendimento Principal" : "Ex: Instagram @empresa"} />
         </div>
+        {type === "whatsapp" && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Phone Number ID</label>
+              <input value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                placeholder="Ex: 123456789012345" />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Encontre em Meta Business &gt; WhatsApp &gt; Configurações da API</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Access Token (permanente)</label>
+              <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                placeholder="EAAxxxxxxx..." />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Gere um token permanente em developers.facebook.com &gt; seu app &gt; WhatsApp &gt; Configuração</p>
+            </div>
+          </>
+        )}
         {type === "webchat" && (
           <>
             <div className="grid grid-cols-2 gap-4">
@@ -663,6 +680,7 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
     e.preventDefault();
     setSaving(true);
     let config: Record<string, unknown> | undefined;
+    if (instance.type === "whatsapp") config = { accessToken, phoneNumberId: (cfg.phoneNumberId || '') };
     if (instance.type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null, closeMessage };
     if (instance.type === "instagram") config = { accessToken, pageId };
     await fetch(`/api/channels/${instance.id}`, {
@@ -726,6 +744,22 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Mensagem de encerramento</label>
               <input value={closeMessage} onChange={(e) => setCloseMessage(e.target.value)} className={inputCls} placeholder="Obrigado pelo contato!" />
+            </div>
+          </div>
+        )}
+
+        {/* WhatsApp Cloud API config */}
+        {instance.type === "whatsapp" && (
+          <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-4">
+            <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">WhatsApp Cloud API</h4>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Phone Number ID</label>
+              <input value={cfg.phoneNumberId || ''} readOnly className={inputCls + " font-mono bg-gray-50 dark:bg-gray-900"} />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Definido na criação do canal</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Access Token</label>
+              <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)} className={inputCls + " font-mono"} placeholder="EAAxxxxxxx..." />
             </div>
           </div>
         )}
