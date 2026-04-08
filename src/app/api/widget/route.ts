@@ -7,25 +7,105 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+function cors(body: unknown, init: ResponseInit = {}) {
+  return NextResponse.json(body, { ...init, headers: { ...CORS_HEADERS, ...init.headers } });
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
-// POST - Receive message from chat widget
+// GET /api/widget?conversationId=X&after=timestamp - poll for new messages
+// GET /api/widget?channelId=X - get widget config (colors, texts)
+export async function GET(request: NextRequest) {
+  const conversationId = request.nextUrl.searchParams.get('conversationId');
+  const channelId = request.nextUrl.searchParams.get('channelId');
+  const after = request.nextUrl.searchParams.get('after');
+
+  // Return widget config
+  if (channelId && !conversationId) {
+    const channel = await prisma.channel.findUnique({ where: { id: parseInt(channelId) } });
+    if (!channel || channel.type !== 'webchat') return cors({ error: 'Canal não encontrado' }, { status: 404 });
+
+    const config = (channel.config || {}) as Record<string, unknown>;
+    return cors({
+      name: channel.name,
+      welcomeMessage: channel.welcomeMessage,
+      color: config.color || '#465FFF',
+      title: config.title || 'Chat',
+      subtitle: config.subtitle || 'Estamos online',
+      position: config.position || 'right',
+      agentName: config.agentName || 'Atendente',
+      agentAvatar: config.agentAvatar || null,
+      askName: config.askName !== false,
+    });
+  }
+
+  // Poll messages
+  if (!conversationId) return cors({ error: 'conversationId obrigatório' }, { status: 400 });
+
+  const where: Record<string, unknown> = { conversationId: parseInt(conversationId) };
+  if (after) where.timestamp = { gt: new Date(after) };
+
+  const messages = await prisma.message.findMany({ where, orderBy: { timestamp: 'asc' } });
+  return cors(messages);
+}
+
+// POST /api/widget - send message or start conversation
 export async function POST(request: NextRequest) {
   try {
-    const { channelId, visitorId, visitorName, text } = await request.json();
+    const body = await request.json();
+    const { channelId, visitorId, visitorName, text, action } = body;
 
-    if (!channelId || !visitorId || !text) {
-      return NextResponse.json({ error: 'channelId, visitorId e text são obrigatórios' }, { status: 400, headers: CORS_HEADERS });
-    }
+    if (!channelId || !visitorId) return cors({ error: 'channelId e visitorId obrigatórios' }, { status: 400 });
 
     const channel = await prisma.channel.findUnique({ where: { id: parseInt(channelId) } });
-    if (!channel || channel.type !== 'webchat') {
-      return NextResponse.json({ error: 'Canal webchat não encontrado' }, { status: 404, headers: CORS_HEADERS });
+    if (!channel || channel.type !== 'webchat') return cors({ error: 'Canal não encontrado' }, { status: 404 });
+
+    // Action: start - create conversation and send welcome (no user message yet)
+    if (action === 'start') {
+      let conversation = await prisma.conversation.findUnique({
+        where: { channelId_contactId: { channelId: channel.id, contactId: visitorId } },
+      });
+
+      if (!conversation) {
+        conversation = await prisma.conversation.create({
+          data: {
+            channelId: channel.id,
+            contactId: visitorId,
+            contactName: visitorName || 'Visitante',
+            mode: channel.aiEnabled ? 'ai' : 'human',
+            status: 'open',
+          },
+        });
+      } else if (visitorName && conversation.contactName !== visitorName) {
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: { contactName: visitorName },
+        });
+      }
+
+      // Send welcome message if configured
+      let welcome: string | null = null;
+      if (channel.welcomeMessage) {
+        // Check if we already sent welcome
+        const existingWelcome = await prisma.message.findFirst({
+          where: { conversationId: conversation.id, sender: 'ai' },
+        });
+        if (!existingWelcome) {
+          await prisma.message.create({
+            data: { conversationId: conversation.id, sender: 'ai', content: channel.welcomeMessage },
+          });
+          welcome = channel.welcomeMessage;
+        }
+      }
+
+      return cors({ conversationId: conversation.id, welcome });
     }
 
-    // Get or create conversation
+    // Action: message (default)
+    if (!text) return cors({ error: 'text obrigatório' }, { status: 400 });
+
     let conversation = await prisma.conversation.findUnique({
       where: { channelId_contactId: { channelId: channel.id, contactId: visitorId } },
     });
@@ -35,14 +115,14 @@ export async function POST(request: NextRequest) {
         data: {
           channelId: channel.id,
           contactId: visitorId,
-          contactName: visitorName || `Visitante ${visitorId.slice(0, 6)}`,
+          contactName: visitorName || 'Visitante',
           mode: channel.aiEnabled ? 'ai' : 'human',
           status: 'open',
         },
       });
     }
 
-    // Save message
+    // Save user message
     await prisma.message.create({
       data: { conversationId: conversation.id, sender: 'contact', content: text },
     });
@@ -51,7 +131,7 @@ export async function POST(request: NextRequest) {
       data: { updatedAt: new Date(), unread: { increment: 1 } },
     });
 
-    // If AI enabled, generate response
+    // AI response
     if (channel.aiEnabled && conversation.mode === 'ai' && process.env.ANTHROPIC_API_KEY) {
       const { default: Anthropic } = await import('@anthropic-ai/sdk');
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -62,93 +142,42 @@ export async function POST(request: NextRequest) {
         take: 20,
       });
 
-      const messages = history.map((m) => ({
+      const msgs = history.map((m) => ({
         role: (m.sender === 'contact' ? 'user' : 'assistant') as 'user' | 'assistant',
         content: m.content,
       }));
 
-      // Merge consecutive same role
-      const merged: typeof messages = [];
-      for (const msg of messages) {
+      const merged: typeof msgs = [];
+      for (const m of msgs) {
         const last = merged[merged.length - 1];
-        if (last && last.role === msg.role) last.content += '\n' + msg.content;
-        else merged.push({ ...msg });
+        if (last && last.role === m.role) last.content += '\n' + m.content;
+        else merged.push({ ...m });
       }
       if (merged[0]?.role !== 'user') merged.shift();
 
       if (merged.length > 0) {
-        const systemPrompt = channel.aiPrompt || `Você é um assistente virtual da empresa "${channel.name}". Responda em português do Brasil, de forma educada e objetiva. Respostas curtas (máximo 3 frases).`;
-
         try {
           const response = await anthropic.messages.create({
             model: channel.aiModel || 'claude-sonnet-4-6',
             max_tokens: 500,
-            system: systemPrompt,
+            system: channel.aiPrompt || `Você é um assistente virtual da empresa "${channel.name}". Responda em português do Brasil, de forma educada e objetiva. Respostas curtas.`,
             messages: merged,
           });
 
-          const aiText = response.content
-            .filter((b) => b.type === 'text')
-            .map((b) => 'text' in b ? b.text : '')
-            .join('\n');
-
+          const aiText = response.content.filter((b) => b.type === 'text').map((b) => 'text' in b ? b.text : '').join('\n');
           if (aiText) {
-            await prisma.message.create({
-              data: { conversationId: conversation.id, sender: 'ai', content: aiText },
-            });
-
-            return NextResponse.json({
-              conversationId: conversation.id,
-              reply: aiText,
-            }, { headers: CORS_HEADERS });
+            await prisma.message.create({ data: { conversationId: conversation.id, sender: 'ai', content: aiText } });
+            return cors({ conversationId: conversation.id, reply: aiText });
           }
         } catch (e) {
-          console.error('[Widget AI] Error:', e);
+          console.error('[Widget AI]', e);
         }
       }
     }
 
-    // Welcome message for first contact (no AI)
-    if (!channel.aiEnabled && channel.welcomeMessage) {
-      const msgCount = await prisma.message.count({
-        where: { conversationId: conversation.id, sender: 'contact' },
-      });
-      if (msgCount === 1) {
-        await prisma.message.create({
-          data: { conversationId: conversation.id, sender: 'ai', content: channel.welcomeMessage },
-        });
-        return NextResponse.json({
-          conversationId: conversation.id,
-          reply: channel.welcomeMessage,
-        }, { headers: CORS_HEADERS });
-      }
-    }
-
-    return NextResponse.json({ conversationId: conversation.id, reply: null }, { headers: CORS_HEADERS });
+    return cors({ conversationId: conversation.id, reply: null });
   } catch (error) {
-    console.error('[Widget] Error:', error);
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500, headers: CORS_HEADERS });
+    console.error('[Widget]', error);
+    return cors({ error: 'Erro interno' }, { status: 500 });
   }
-}
-
-// GET - Get messages for a conversation (polling)
-export async function GET(request: NextRequest) {
-  const conversationId = request.nextUrl.searchParams.get('conversationId');
-  const after = request.nextUrl.searchParams.get('after');
-
-  if (!conversationId) {
-    return NextResponse.json({ error: 'conversationId obrigatório' }, { status: 400, headers: CORS_HEADERS });
-  }
-
-  const where: Record<string, unknown> = { conversationId: parseInt(conversationId) };
-  if (after) {
-    where.timestamp = { gt: new Date(after) };
-  }
-
-  const messages = await prisma.message.findMany({
-    where,
-    orderBy: { timestamp: 'asc' },
-  });
-
-  return NextResponse.json(messages, { headers: CORS_HEADERS });
 }

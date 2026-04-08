@@ -133,7 +133,7 @@ export default function InboxPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-gray-800 dark:text-white/90 truncate">
-                          {conv.contactName || conv.contactId}
+                          {conv.contactName || (conv.contactId.startsWith('v_') ? 'Visitante' : conv.contactId)}
                         </span>
                         <span className="text-[10px] text-gray-400 dark:text-gray-500 shrink-0 ml-2">
                           {new Date(conv.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
@@ -187,10 +187,10 @@ export default function InboxPage() {
                 })()}
                 <div>
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-white/90">
-                    {activeChat.contactName || activeChat.contactId}
+                    {activeChat.contactName || (activeChat.contactId.startsWith('v_') ? 'Visitante' : activeChat.contactId)}
                   </h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {activeChat.channel.name} · {activeChat.channel.type === "whatsapp" ? `+${activeChat.contactId}` : activeChat.contactId}
+                    {activeChat.channel.name}{activeChat.channel.type === "whatsapp" ? ` · +${activeChat.contactId}` : activeChat.contactId.startsWith('v_') ? '' : ` · ${activeChat.contactId}`}
                   </p>
                 </div>
               </div>

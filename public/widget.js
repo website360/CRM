@@ -1,238 +1,197 @@
 (function() {
   'use strict';
-
-  // Config from script tag data attributes
   var script = document.currentScript;
   var API_URL = script.getAttribute('data-api') || '';
   var CHANNEL_ID = script.getAttribute('data-channel') || '';
-  var COLOR = script.getAttribute('data-color') || '#465FFF';
-  var TITLE = script.getAttribute('data-title') || 'Chat';
-  var SUBTITLE = script.getAttribute('data-subtitle') || 'Estamos online';
-  var POSITION = script.getAttribute('data-position') || 'right';
+  if (!API_URL || !CHANNEL_ID) return;
 
-  if (!API_URL || !CHANNEL_ID) {
-    console.error('[CRM LP Widget] data-api e data-channel são obrigatórios');
-    return;
-  }
+  var VISITOR_ID = localStorage.getItem('crm_lp_vid') || ('v_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+  localStorage.setItem('crm_lp_vid', VISITOR_ID);
+  var conversationId = localStorage.getItem('crm_lp_c_' + CHANNEL_ID) || null;
+  var isOpen = false, messages = [], lastTs = null, poll = null, vName = localStorage.getItem('crm_lp_name') || '';
 
-  // Generate or retrieve visitor ID
-  var VISITOR_ID = localStorage.getItem('crm_lp_visitor') || ('v_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
-  localStorage.setItem('crm_lp_visitor', VISITOR_ID);
+  // Defaults (overridden by server config)
+  var cfg = { color: '#465FFF', title: 'Chat', subtitle: 'Estamos online', position: 'right', agentName: 'Atendente', agentAvatar: null, askName: true, welcomeMessage: null };
 
-  var conversationId = localStorage.getItem('crm_lp_conv_' + CHANNEL_ID) || null;
-  var isOpen = false;
-  var messages = [];
-  var lastTimestamp = null;
-  var pollInterval = null;
-  var visitorName = '';
+  // Load config from server
+  fetch(API_URL + '/api/widget?channelId=' + CHANNEL_ID).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.color) cfg.color = d.color;
+    if (d.title) cfg.title = d.title;
+    if (d.subtitle) cfg.subtitle = d.subtitle;
+    if (d.position) cfg.position = d.position;
+    if (d.agentName) cfg.agentName = d.agentName;
+    if (d.agentAvatar) cfg.agentAvatar = d.agentAvatar;
+    if (d.askName === false) cfg.askName = false;
+    if (d.welcomeMessage) cfg.welcomeMessage = d.welcomeMessage;
+    init();
+  }).catch(function() { init(); });
 
-  // ==================== STYLES ====================
-  var style = document.createElement('style');
-  style.textContent = `
-    #crm-lp-widget-btn{position:fixed;bottom:24px;${POSITION}:24px;z-index:99999;width:60px;height:60px;border-radius:50%;background:${COLOR};color:#fff;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;transition:transform .2s,box-shadow .2s}
-    #crm-lp-widget-btn:hover{transform:scale(1.1);box-shadow:0 6px 20px rgba(0,0,0,0.2)}
-    #crm-lp-widget-btn svg{width:28px;height:28px}
-    #crm-lp-widget-badge{position:absolute;top:-2px;right:-2px;background:#f04438;color:#fff;font-size:11px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:none;align-items:center;justify-content:center;padding:0 4px}
-    #crm-lp-widget{position:fixed;bottom:96px;${POSITION}:24px;z-index:99999;width:380px;max-width:calc(100vw - 48px);height:520px;max-height:calc(100vh - 120px);background:#fff;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,0.12);display:none;flex-direction:column;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-    #crm-lp-widget.open{display:flex}
-    #crm-lp-widget-header{background:${COLOR};color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
-    #crm-lp-widget-header h3{font-size:15px;font-weight:600;margin:0}
-    #crm-lp-widget-header p{font-size:12px;opacity:.8;margin:2px 0 0}
-    #crm-lp-widget-header button{background:none;border:none;color:#fff;cursor:pointer;padding:4px;opacity:.8}
-    #crm-lp-widget-header button:hover{opacity:1}
-    #crm-lp-widget-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#f9fafb}
-    .crm-msg{max-width:80%;padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.4;word-wrap:break-word}
-    .crm-msg.contact{align-self:flex-end;background:${COLOR};color:#fff;border-bottom-right-radius:4px}
-    .crm-msg.ai,.crm-msg.human{align-self:flex-start;background:#fff;color:#1d2939;border:1px solid #e4e7ec;border-bottom-left-radius:4px}
-    .crm-msg .crm-sender{font-size:10px;font-weight:600;opacity:.6;margin-bottom:2px}
-    .crm-msg .crm-time{font-size:10px;opacity:.5;text-align:right;margin-top:4px}
-    #crm-lp-widget-input{padding:12px;border-top:1px solid #e4e7ec;display:flex;gap:8px;background:#fff}
-    #crm-lp-widget-input input{flex:1;border:1px solid #d0d5dd;border-radius:8px;padding:10px 14px;font-size:14px;outline:none;transition:border .2s}
-    #crm-lp-widget-input input:focus{border-color:${COLOR}}
-    #crm-lp-widget-input button{background:${COLOR};color:#fff;border:none;border-radius:8px;padding:10px 14px;cursor:pointer;transition:opacity .2s}
-    #crm-lp-widget-input button:hover{opacity:.9}
-    #crm-lp-widget-input button:disabled{opacity:.5}
-    #crm-lp-widget-name{padding:16px;background:#fff;border-top:1px solid #e4e7ec}
-    #crm-lp-widget-name p{font-size:13px;color:#667085;margin:0 0 8px}
-    #crm-lp-widget-name input{width:100%;border:1px solid #d0d5dd;border-radius:8px;padding:10px 14px;font-size:14px;outline:none;margin-bottom:8px}
-    #crm-lp-widget-name button{width:100%;background:${COLOR};color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer}
-  `;
-  document.head.appendChild(style);
+  function init() {
+    // Styles
+    var pos = cfg.position === 'left' ? 'left' : 'right';
+    var s = document.createElement('style');
+    s.textContent = [
+      '#clw-btn{position:fixed;bottom:24px;' + pos + ':24px;z-index:99999;width:60px;height:60px;border-radius:50%;background:' + cfg.color + ';color:#fff;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;transition:transform .2s}',
+      '#clw-btn:hover{transform:scale(1.1)}',
+      '#clw-btn svg{width:28px;height:28px}',
+      '#clw-badge{position:absolute;top:-2px;right:-2px;background:#f04438;color:#fff;font-size:11px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:none;align-items:center;justify-content:center;padding:0 4px}',
+      '#clw{position:fixed;bottom:96px;' + pos + ':24px;z-index:99999;width:380px;max-width:calc(100vw - 48px);height:520px;max-height:calc(100vh - 120px);background:#fff;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.12);display:none;flex-direction:column;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif}',
+      '#clw.open{display:flex}',
+      '#clw-hdr{background:' + cfg.color + ';color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}',
+      '#clw-hdr h3{font-size:15px;font-weight:600;margin:0}#clw-hdr p{font-size:12px;opacity:.8;margin:2px 0 0}',
+      '#clw-hdr button{background:none;border:none;color:#fff;cursor:pointer;font-size:20px;opacity:.8}#clw-hdr button:hover{opacity:1}',
+      '#clw-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#f9fafb}',
+      '.clw-m{max-width:80%;padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.5;word-wrap:break-word}',
+      '.clw-m.contact{align-self:flex-end;background:' + cfg.color + ';color:#fff;border-bottom-right-radius:4px}',
+      '.clw-m.ai,.clw-m.human{align-self:flex-start;background:#fff;color:#1d2939;border:1px solid #e4e7ec;border-bottom-left-radius:4px}',
+      '.clw-agent{display:flex;align-items:center;gap:6px;margin-bottom:4px}',
+      '.clw-agent img{width:20px;height:20px;border-radius:50%;object-fit:cover}',
+      '.clw-agent span{font-size:11px;font-weight:600;color:#667085}',
+      '.clw-time{font-size:10px;opacity:.5;text-align:right;margin-top:4px}',
+      '#clw-inp{padding:12px;border-top:1px solid #e4e7ec;display:flex;gap:8px}',
+      '#clw-inp input{flex:1;border:1px solid #d0d5dd;border-radius:8px;padding:10px 14px;font-size:14px;outline:none}',
+      '#clw-inp input:focus{border-color:' + cfg.color + '}',
+      '#clw-inp button{background:' + cfg.color + ';color:#fff;border:none;border-radius:8px;padding:10px 14px;cursor:pointer}',
+      '#clw-inp button:disabled{opacity:.5}',
+      '#clw-name{padding:20px;text-align:center}',
+      '#clw-name p{font-size:14px;color:#667085;margin:0 0 12px}',
+      '#clw-name input{width:100%;border:1px solid #d0d5dd;border-radius:8px;padding:10px 14px;font-size:14px;outline:none;margin-bottom:10px;text-align:center}',
+      '#clw-name button{width:100%;background:' + cfg.color + ';color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:600;cursor:pointer}',
+    ].join('');
+    document.head.appendChild(s);
 
-  // ==================== HTML ====================
-  // Float button
-  var btn = document.createElement('button');
-  btn.id = 'crm-lp-widget-btn';
-  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span id="crm-lp-widget-badge">0</span>';
-  document.body.appendChild(btn);
+    // Button
+    var btn = document.createElement('button');
+    btn.id = 'clw-btn';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span id="clw-badge">0</span>';
+    document.body.appendChild(btn);
 
-  // Chat window
-  var widget = document.createElement('div');
-  widget.id = 'crm-lp-widget';
-  widget.innerHTML = `
-    <div id="crm-lp-widget-header">
-      <div><h3>${TITLE}</h3><p>${SUBTITLE}</p></div>
-      <button id="crm-lp-close">&times;</button>
-    </div>
-    <div id="crm-lp-widget-messages"></div>
-    <div id="crm-lp-widget-name">
-      <p>Como podemos te chamar?</p>
-      <input type="text" placeholder="Seu nome" id="crm-lp-name-input" />
-      <button id="crm-lp-name-btn">Iniciar conversa</button>
-    </div>
-    <div id="crm-lp-widget-input" style="display:none">
-      <input type="text" placeholder="Digite sua mensagem..." id="crm-lp-msg-input" />
-      <button id="crm-lp-send-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>
-      </button>
-    </div>
-  `;
-  document.body.appendChild(widget);
+    // Widget
+    var w = document.createElement('div');
+    w.id = 'clw';
+    var showInput = vName || !cfg.askName;
+    w.innerHTML =
+      '<div id="clw-hdr"><div><h3>' + cfg.title + '</h3><p>' + cfg.subtitle + '</p></div><button id="clw-x">&times;</button></div>' +
+      '<div id="clw-msgs"></div>' +
+      (showInput ? '' : '<div id="clw-name"><p>Como podemos te chamar?</p><input type="text" placeholder="Seu nome" id="clw-ni" /><button id="clw-nb">Iniciar conversa</button></div>') +
+      '<div id="clw-inp" style="' + (showInput ? '' : 'display:none') + '"><input type="text" placeholder="Digite sua mensagem..." id="clw-mi" /><button id="clw-sb"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></button></div>';
+    document.body.appendChild(w);
 
-  var messagesEl = document.getElementById('crm-lp-widget-messages');
-  var nameSection = document.getElementById('crm-lp-widget-name');
-  var inputSection = document.getElementById('crm-lp-widget-input');
-  var msgInput = document.getElementById('crm-lp-msg-input');
-  var sendBtn = document.getElementById('crm-lp-send-btn');
-  var nameInput = document.getElementById('crm-lp-name-input');
-  var nameBtn = document.getElementById('crm-lp-name-btn');
+    var msgsEl = document.getElementById('clw-msgs');
+    var miEl = document.getElementById('clw-mi');
+    var sbEl = document.getElementById('clw-sb');
+    var niEl = document.getElementById('clw-ni');
+    var nbEl = document.getElementById('clw-nb');
+    var inpSec = document.getElementById('clw-inp');
+    var nameSec = document.getElementById('clw-name');
 
-  // Check if already has a name saved
-  var savedName = localStorage.getItem('crm_lp_name');
-  if (savedName) {
-    visitorName = savedName;
-    nameSection.style.display = 'none';
-    inputSection.style.display = 'flex';
-  }
+    btn.onclick = function() {
+      isOpen = !isOpen;
+      w.classList.toggle('open', isOpen);
+      if (isOpen) { startPoll(); if (miEl) miEl.focus(); }
+      else stopPoll();
+    };
+    document.getElementById('clw-x').onclick = function() { isOpen = false; w.classList.remove('open'); stopPoll(); };
 
-  // ==================== EVENTS ====================
-  btn.addEventListener('click', function() {
-    isOpen = !isOpen;
-    widget.classList.toggle('open', isOpen);
-    if (isOpen && conversationId) startPolling();
-    else stopPolling();
-  });
+    if (nbEl) {
+      nbEl.onclick = function() {
+        var n = niEl.value.trim();
+        if (!n) return;
+        vName = n;
+        localStorage.setItem('crm_lp_name', n);
+        nameSec.style.display = 'none';
+        inpSec.style.display = 'flex';
+        miEl.focus();
+        // Start conversation and send welcome
+        startConversation();
+      };
+      niEl.onkeydown = function(e) { if (e.key === 'Enter') nbEl.click(); };
+    } else if (showInput) {
+      // Already has name, start conversation
+      startConversation();
+    }
 
-  document.getElementById('crm-lp-close').addEventListener('click', function() {
-    isOpen = false;
-    widget.classList.remove('open');
-    stopPolling();
-  });
+    sbEl.onclick = sendMsg;
+    miEl.onkeydown = function(e) { if (e.key === 'Enter') sendMsg(); };
 
-  nameBtn.addEventListener('click', function() {
-    var name = nameInput.value.trim();
-    if (!name) return;
-    visitorName = name;
-    localStorage.setItem('crm_lp_name', name);
-    nameSection.style.display = 'none';
-    inputSection.style.display = 'flex';
-    msgInput.focus();
-  });
-
-  nameInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') nameBtn.click();
-  });
-
-  sendBtn.addEventListener('click', sendMessage);
-  msgInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') sendMessage();
-  });
-
-  function sendMessage() {
-    var text = msgInput.value.trim();
-    if (!text) return;
-    msgInput.value = '';
-    sendBtn.disabled = true;
-
-    // Show message immediately
-    addMessage({ sender: 'contact', content: text, timestamp: new Date().toISOString() });
-
-    fetch(API_URL + '/api/widget', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        channelId: CHANNEL_ID,
-        visitorId: VISITOR_ID,
-        visitorName: visitorName,
-        text: text,
-      }),
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      sendBtn.disabled = false;
-      if (data.conversationId) {
-        conversationId = data.conversationId;
-        localStorage.setItem('crm_lp_conv_' + CHANNEL_ID, conversationId);
-        startPolling();
-      }
-      if (data.reply) {
-        addMessage({ sender: 'ai', content: data.reply, timestamp: new Date().toISOString() });
-      }
-    })
-    .catch(function() { sendBtn.disabled = false; });
-  }
-
-  function addMessage(msg) {
-    // Avoid duplicates
-    var exists = messages.find(function(m) { return m.content === msg.content && m.sender === msg.sender && m.timestamp === msg.timestamp; });
-    if (exists) return;
-
-    messages.push(msg);
-    var div = document.createElement('div');
-    div.className = 'crm-msg ' + msg.sender;
-
-    var html = '';
-    if (msg.sender === 'human') html += '<div class="crm-sender">Atendente</div>';
-    if (msg.sender === 'ai') html += '<div class="crm-sender">Assistente</div>';
-    html += msg.content.replace(/\n/g, '<br>');
-
-    var d = new Date(msg.timestamp);
-    html += '<div class="crm-time">' + d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0') + '</div>';
-
-    div.innerHTML = html;
-    messagesEl.appendChild(div);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  function startPolling() {
-    stopPolling();
-    if (!conversationId) return;
-    pollInterval = setInterval(pollMessages, 3000);
-  }
-
-  function stopPolling() {
-    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-  }
-
-  function pollMessages() {
-    if (!conversationId) return;
-    var url = API_URL + '/api/widget?conversationId=' + conversationId;
-    if (lastTimestamp) url += '&after=' + encodeURIComponent(lastTimestamp);
-
-    fetch(url)
-      .then(function(r) { return r.json(); })
-      .then(function(msgs) {
-        if (!Array.isArray(msgs)) return;
-        msgs.forEach(function(msg) {
-          if (msg.sender !== 'contact') {
-            addMessage(msg);
-          }
-          lastTimestamp = msg.timestamp;
-        });
-      })
-      .catch(function() {});
-  }
-
-  // Load existing messages if conversation exists
-  if (conversationId) {
-    fetch(API_URL + '/api/widget?conversationId=' + conversationId)
-      .then(function(r) { return r.json(); })
-      .then(function(msgs) {
-        if (Array.isArray(msgs)) {
-          msgs.forEach(function(msg) { addMessage(msg); });
-          if (msgs.length > 0) lastTimestamp = msgs[msgs.length - 1].timestamp;
+    function startConversation() {
+      fetch(API_URL + '/api/widget', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: CHANNEL_ID, visitorId: VISITOR_ID, visitorName: vName, action: 'start' }),
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.conversationId) {
+          conversationId = d.conversationId;
+          localStorage.setItem('crm_lp_c_' + CHANNEL_ID, conversationId);
         }
-      })
-      .catch(function() {});
+        if (d.welcome) addMsg({ sender: 'ai', content: d.welcome, timestamp: new Date().toISOString() });
+        startPoll();
+      }).catch(function() {});
+    }
+
+    function sendMsg() {
+      var t = miEl.value.trim();
+      if (!t) return;
+      miEl.value = '';
+      sbEl.disabled = true;
+      addMsg({ sender: 'contact', content: t, timestamp: new Date().toISOString() });
+      fetch(API_URL + '/api/widget', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: CHANNEL_ID, visitorId: VISITOR_ID, visitorName: vName, text: t }),
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        sbEl.disabled = false;
+        if (d.conversationId && !conversationId) {
+          conversationId = d.conversationId;
+          localStorage.setItem('crm_lp_c_' + CHANNEL_ID, conversationId);
+          startPoll();
+        }
+        if (d.reply) addMsg({ sender: 'ai', content: d.reply, timestamp: new Date().toISOString() });
+      }).catch(function() { sbEl.disabled = false; });
+    }
+
+    function addMsg(m) {
+      var dup = messages.find(function(x) { return x.content === m.content && x.sender === m.sender && Math.abs(new Date(x.timestamp) - new Date(m.timestamp)) < 2000; });
+      if (dup) return;
+      messages.push(m);
+      var div = document.createElement('div');
+      div.className = 'clw-m ' + m.sender;
+      var h = '';
+      if (m.sender !== 'contact') {
+        h += '<div class="clw-agent">';
+        if (cfg.agentAvatar) h += '<img src="' + cfg.agentAvatar + '" alt="" />';
+        h += '<span>' + (m.sender === 'ai' ? cfg.agentName : cfg.agentName) + '</span></div>';
+      }
+      h += m.content.replace(/\n/g, '<br>');
+      var d = new Date(m.timestamp);
+      h += '<div class="clw-time">' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + '</div>';
+      div.innerHTML = h;
+      msgsEl.appendChild(div);
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+    }
+
+    function startPoll() { stopPoll(); if (conversationId) poll = setInterval(pollMsgs, 3000); }
+    function stopPoll() { if (poll) { clearInterval(poll); poll = null; } }
+
+    function pollMsgs() {
+      if (!conversationId) return;
+      var url = API_URL + '/api/widget?conversationId=' + conversationId;
+      if (lastTs) url += '&after=' + encodeURIComponent(lastTs);
+      fetch(url).then(function(r) { return r.json(); }).then(function(ms) {
+        if (!Array.isArray(ms)) return;
+        ms.forEach(function(m) { if (m.sender !== 'contact') addMsg(m); lastTs = m.timestamp; });
+      }).catch(function() {});
+    }
+
+    // Load existing messages
+    if (conversationId) {
+      fetch(API_URL + '/api/widget?conversationId=' + conversationId)
+        .then(function(r) { return r.json(); })
+        .then(function(ms) {
+          if (!Array.isArray(ms)) return;
+          ms.forEach(function(m) { addMsg(m); });
+          if (ms.length) lastTs = ms[ms.length - 1].timestamp;
+        }).catch(function() {});
+    }
   }
 })();

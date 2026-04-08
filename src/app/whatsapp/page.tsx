@@ -484,13 +484,20 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [pageId, setPageId] = useState("");
+  const [widgetColor, setWidgetColor] = useState("#465FFF");
+  const [widgetTitle, setWidgetTitle] = useState("Suporte");
+  const [widgetSubtitle, setWidgetSubtitle] = useState("Estamos online");
+  const [agentName, setAgentName] = useState("Atendente");
+  const [agentAvatar, setAgentAvatar] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
-    const config = type === "instagram" ? { accessToken, pageId } : undefined;
+    let config: Record<string, unknown> | undefined;
+    if (type === "instagram") config = { accessToken, pageId };
+    if (type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null };
     await fetch("/api/channels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -524,6 +531,47 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
             className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
             placeholder={type === "whatsapp" ? "Ex: Atendimento Principal" : "Ex: Instagram @empresa"} />
         </div>
+        {type === "webchat" && (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Cor do widget</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={widgetColor} onChange={(e) => setWidgetColor(e.target.value)} className="w-10 h-10 rounded border-0 cursor-pointer" />
+                  <input value={widgetColor} onChange={(e) => setWidgetColor(e.target.value)}
+                    className="flex-1 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nome do atendente</label>
+                <input value={agentName} onChange={(e) => setAgentName(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                  placeholder="Atendente" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Título do chat</label>
+                <input value={widgetTitle} onChange={(e) => setWidgetTitle(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                  placeholder="Suporte" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Subtítulo</label>
+                <input value={widgetSubtitle} onChange={(e) => setWidgetSubtitle(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                  placeholder="Estamos online" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Foto do atendente (URL)</label>
+              <input value={agentAvatar} onChange={(e) => setAgentAvatar(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                placeholder="https://exemplo.com/foto.jpg (opcional)" />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Aparece ao lado das mensagens do atendente/IA no widget</p>
+            </div>
+          </>
+        )}
         {type === "instagram" && (
           <>
             <div>
