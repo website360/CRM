@@ -114,12 +114,55 @@
     sbEl.onclick = sendMsg;
     miEl.onkeydown = function(e) { if (e.key === 'Enter') sendMsg(); };
 
+    function resetSession() {
+      // Generate new visitor ID, clear conversation, show name form again
+      VISITOR_ID = 'v_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem('crm_lp_vid', VISITOR_ID);
+      localStorage.removeItem('crm_lp_c_' + CHANNEL_ID);
+      localStorage.removeItem('crm_lp_name');
+      conversationId = null;
+      vName = '';
+      messages = [];
+      lastTs = null;
+      stopPoll();
+      msgsEl.innerHTML = '';
+      // Show name form, hide input
+      if (cfg.askName) {
+        if (!nameSec) {
+          // Recreate name section
+          var ns = document.createElement('div');
+          ns.id = 'clw-name';
+          ns.innerHTML = '<p>Como podemos te chamar?</p><input type="text" placeholder="Seu nome" id="clw-ni" /><button id="clw-nb">Iniciar conversa</button>';
+          w.insertBefore(ns, inpSec);
+          inpSec.style.display = 'none';
+          var newNi = document.getElementById('clw-ni');
+          var newNb = document.getElementById('clw-nb');
+          newNb.onclick = function() {
+            var n = newNi.value.trim();
+            if (!n) return;
+            vName = n;
+            localStorage.setItem('crm_lp_name', n);
+            ns.style.display = 'none';
+            inpSec.style.display = 'flex';
+            miEl.focus();
+            startConversation();
+          };
+          newNi.onkeydown = function(e) { if (e.key === 'Enter') newNb.click(); };
+        } else {
+          nameSec.style.display = 'block';
+          inpSec.style.display = 'none';
+          if (niEl) niEl.value = '';
+        }
+      }
+    }
+
     function startConversation() {
       fetch(API_URL + '/api/widget', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channelId: CHANNEL_ID, visitorId: VISITOR_ID, visitorName: vName, action: 'start' }),
       }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.closed) { resetSession(); return; }
         if (d.conversationId) {
           conversationId = d.conversationId;
           localStorage.setItem('crm_lp_c_' + CHANNEL_ID, conversationId);
@@ -141,6 +184,7 @@
         body: JSON.stringify({ channelId: CHANNEL_ID, visitorId: VISITOR_ID, visitorName: vName, text: t }),
       }).then(function(r) { return r.json(); }).then(function(d) {
         sbEl.disabled = false;
+        if (d.closed) { resetSession(); return; }
         if (d.conversationId && !conversationId) {
           conversationId = d.conversationId;
           localStorage.setItem('crm_lp_c_' + CHANNEL_ID, conversationId);

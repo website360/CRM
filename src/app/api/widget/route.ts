@@ -68,6 +68,12 @@ export async function POST(request: NextRequest) {
         where: { channelId_contactId: { channelId: channel.id, contactId: visitorId } },
       });
 
+      // If conversation was closed, create a new one with a new visitor ID
+      if (conversation && conversation.status === 'closed') {
+        // Return closed status so widget resets
+        return cors({ closed: true, conversationId: null });
+      }
+
       if (!conversation) {
         conversation = await prisma.conversation.create({
           data: {
@@ -109,6 +115,11 @@ export async function POST(request: NextRequest) {
     let conversation = await prisma.conversation.findUnique({
       where: { channelId_contactId: { channelId: channel.id, contactId: visitorId } },
     });
+
+    // If closed, tell widget to reset
+    if (conversation && conversation.status === 'closed') {
+      return cors({ closed: true, conversationId: null });
+    }
 
     if (!conversation) {
       conversation = await prisma.conversation.create({

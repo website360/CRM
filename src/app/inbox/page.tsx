@@ -45,8 +45,10 @@ export default function InboxPage() {
   const [sending, setSending] = useState(false);
 
   const loadConversations = useCallback(async () => {
-    const params = filter !== "all" ? `?type=${filter}` : "";
-    const res = await fetch(`/api/inbox${params}`);
+    const params = new URLSearchParams();
+    if (filter !== "all") params.set("type", filter);
+    params.set("status", "open");
+    const res = await fetch(`/api/inbox?${params}`);
     if (res.ok) setConversations(await res.json());
   }, [filter]);
 
@@ -55,10 +57,17 @@ export default function InboxPage() {
     if (res.ok) setActiveChat(await res.json());
   }, []);
 
-  useEffect(() => { loadConversations(); }, [loadConversations]);
+  // Poll conversations list every 3s (real-time inbox)
+  useEffect(() => {
+    loadConversations();
+    const i = setInterval(loadConversations, 3000);
+    return () => clearInterval(i);
+  }, [loadConversations]);
+
+  // Poll active chat messages every 2s
   useEffect(() => {
     if (!activeChat) return;
-    const i = setInterval(() => loadChat(activeChat.id), 3000);
+    const i = setInterval(() => loadChat(activeChat.id), 2000);
     return () => clearInterval(i);
   }, [activeChat?.id, loadChat]);
 
@@ -70,7 +79,7 @@ export default function InboxPage() {
       body: JSON.stringify({ text: newMessage }),
     });
     setNewMessage(""); setSending(false);
-    loadChat(activeChat.id);
+    loadChat(activeChat.id); loadConversations();
   }
 
   async function handleTakeover(mode: string) {
@@ -80,6 +89,16 @@ export default function InboxPage() {
       body: JSON.stringify({ mode }),
     });
     loadChat(activeChat.id); loadConversations();
+  }
+
+  async function handleClose(conversationId: number) {
+    if (!confirm('Encerrar esta conversa? O visitante iniciará uma nova conversa na próxima vez.')) return;
+    await fetch(`/api/inbox/${conversationId}/takeover`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "human", status: "closed" }),
+    });
+    if (activeChat?.id === conversationId) setActiveChat(null);
+    loadConversations();
   }
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0);
@@ -194,10 +213,16 @@ export default function InboxPage() {
                   </p>
                 </div>
               </div>
-              <button onClick={() => handleTakeover(activeChat.mode === "ai" ? "human" : "ai")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${activeChat.mode === "ai" ? "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/25" : "bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/25"}`}>
-                {activeChat.mode === "ai" ? "Assumir Conversa" : "Devolver p/ IA"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => handleTakeover(activeChat.mode === "ai" ? "human" : "ai")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${activeChat.mode === "ai" ? "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/25" : "bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/25"}`}>
+                  {activeChat.mode === "ai" ? "Assumir Conversa" : "Devolver p/ IA"}
+                </button>
+                <button onClick={() => handleClose(activeChat.id)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500 hover:bg-error-100 dark:hover:bg-error-500/25 transition">
+                  Encerrar
+                </button>
+              </div>
             </div>
 
             {/* Messages */}
