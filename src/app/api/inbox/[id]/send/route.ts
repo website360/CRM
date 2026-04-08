@@ -18,10 +18,12 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const config = conversation.channel.config as Record<string, string> | null;
 
-  // Get signature if enabled
+  // Signature: prepended in bold before message
   const signatureEnabled = config?.signatureEnabled === 'true';
   const signature = config?.signature || '';
-  const finalText = text && signatureEnabled && signature ? `${text}\n\n${signature}` : text;
+  const finalText = text && signatureEnabled && signature ? `*${signature}*\n${text}` : text;
+  // Store signature in message metadata for Inbox display
+  const senderLabel = signatureEnabled && signature ? signature : null;
 
   // Send via channel
   if (conversation.channel.type === 'whatsapp' && config) {

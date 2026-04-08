@@ -13,7 +13,7 @@ type Conversation = {
   mode: string; status: string; unread: number; updatedAt: string;
   channel: Channel; messages: ConvMessage[]; _count: { messages: number };
 };
-type Message = { id: number; sender: string; content: string; timestamp: string };
+type Message = { id: number; sender: string; content: string; timestamp: string; mediaUrl?: string | null; mediaType?: string | null };
 type ConversationDetail = {
   id: number; contactId: string; contactName: string | null; contactAvatar: string | null;
   mode: string; channel: Channel; messages: Message[];
@@ -274,8 +274,13 @@ export default function InboxPage() {
               {activeChat.messages.map((msg) => {
                 const isContact = msg.sender === "contact";
                 const isAi = msg.sender === "ai";
-                const isImage = msg.content.startsWith("[imagem:");
-                const imageUrl = isImage ? msg.content.match(/\[imagem:\s*(.*?)\]/)?.[1] : null;
+                const channelCfg = (activeChat.channel.config || {}) as Record<string, string>;
+                const hasSignature = channelCfg.signatureEnabled === 'true' && channelCfg.signature;
+                const humanLabel = hasSignature ? channelCfg.signature : "Atendente";
+                const isImage = msg.content.startsWith("[imagem:") || msg.mediaUrl;
+                const imageUrl = msg.mediaUrl || (msg.content.match(/\[imagem:\s*(.*?)\]/)?.[1]) || null;
+                const isSticker = msg.content === "[Figurinha]" || msg.mediaType === "sticker";
+                const isMedia = msg.content.startsWith("[Vídeo]") || msg.content.startsWith("[Áudio]") || msg.content.startsWith("[Documento");
 
                 return (
                   <div key={msg.id} className={`flex items-end gap-2 ${isContact ? "justify-start" : "justify-end"}`}>
@@ -295,14 +300,19 @@ export default function InboxPage() {
                           : "bg-brand-500 text-white rounded-br-md"
                     }`}>
                       {!isContact && (
-                        <span className="text-[10px] font-semibold opacity-70 block mb-0.5">
-                          {isAi ? "IA" : "Atendente"}
+                        <span className="text-[10px] font-bold opacity-80 block mb-0.5">
+                          {isAi ? "IA" : humanLabel}
                         </span>
                       )}
                       {imageUrl ? (
-                        <a href={imageUrl} target="_blank" rel="noopener noreferrer">
-                          <img src={imageUrl} alt="" className="rounded-lg max-w-full max-h-60 object-cover" />
+                        <a href={imageUrl.startsWith('data:') ? undefined : imageUrl} target="_blank" rel="noopener noreferrer">
+                          <img src={imageUrl} alt="" className={`rounded-lg max-w-full object-cover ${isSticker ? 'max-h-32 bg-transparent' : 'max-h-60'}`} />
+                          {msg.content && !msg.content.startsWith('[imagem:') && !msg.content.startsWith('[Figurinha') && (
+                            <p className="whitespace-pre-wrap mt-1">{msg.content}</p>
+                          )}
                         </a>
+                      ) : isMedia ? (
+                        <p className="whitespace-pre-wrap italic opacity-70">{msg.content}</p>
                       ) : (
                         <p className="whitespace-pre-wrap">{msg.content}</p>
                       )}

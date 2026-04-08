@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendWhatsAppMessage } from '@/lib/whatsapp/send';
+import { getSetting } from '@/lib/settings';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const instanceName = body.instance || '';
+    console.log(`[Evolution] Event: ${body.event} | Instance: ${instanceName} | HasData: ${!!body.data}`);
 
     // Handle CONNECTION_UPDATE - detect when QR is scanned
     if (body.event === 'connection.update' || body.event === 'CONNECTION_UPDATE') {
@@ -73,22 +75,53 @@ export async function POST(request: NextRequest) {
     let mediaUrl: string | null = null;
     let mediaType: string | null = null;
 
+    // Evolution v2 provides media as base64 in the webhook payload
+    // or as a downloadable URL via their media endpoint
+    const evoUrl = ((await getSetting('EVOLUTION_API_URL')) || '').replace(/\/$/, '');
+    const evoKey = (await getSetting('EVOLUTION_API_KEY')) || '';
+
     // Handle images
     if (msg.imageMessage) {
       mediaType = 'image';
-      mediaUrl = msg.imageMessage.url || msg.imageMessage.directPath || null;
-      // Evolution may provide base64
-      if (!mediaUrl && data.base64) {
+      if (data.message?.base64) {
+        mediaUrl = `data:${msg.imageMessage.mimetype || 'image/jpeg'};base64,${data.message.base64}`;
+      } else if (data.base64) {
         mediaUrl = `data:${msg.imageMessage.mimetype || 'image/jpeg'};base64,${data.base64}`;
+      } else if (msg.imageMessage.url) {
+        mediaUrl = msg.imageMessage.url;
+      } else if (data.key?.id && evoUrl) {
+        // Try to download from Evolution API
+        try {
+          const mediaRes = await fetch(`${evoUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', apikey: evoKey },
+            body: JSON.stringify({ message: { key: data.key, message: data.message } }),
+          });
+          if (mediaRes.ok) {
+            const mediaData = await mediaRes.json();
+            if (mediaData.base64) mediaUrl = `data:${msg.imageMessage.mimetype || 'image/jpeg'};base64,${mediaData.base64}`;
+          }
+        } catch (e) { console.error('[Evolution] Media download error:', e); }
       }
     }
 
     // Handle stickers
     if (msg.stickerMessage) {
       mediaType = 'sticker';
-      mediaUrl = msg.stickerMessage.url || msg.stickerMessage.directPath || null;
-      if (!mediaUrl && data.base64) {
+      if (data.message?.base64) {
+        mediaUrl = `data:image/webp;base64,${data.message.base64}`;
+      } else if (data.base64) {
         mediaUrl = `data:image/webp;base64,${data.base64}`;
+      } else if (data.key?.id && evoUrl) {
+        try {
+          const mediaRes = await fetch(`${evoUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', apikey: evoKey },
+            body: JSON.stringify({ message: { key: data.key, message: data.message } }),
+          });
+          if (mediaRes.ok) {
+            const mediaData = await mediaRes.json();
+            if (mediaData.base64) mediaUrl = `data:image/webp;base64,${mediaData.base64}`;
+          }
+        } catch (e) { console.error('[Evolution] Sticker download error:', e); }
       }
       if (!text) text = '[Figurinha]';
     }
@@ -110,6 +143,8 @@ export async function POST(request: NextRequest) {
       mediaType = 'document';
       text = text || `[Documento: ${msg.documentMessage.fileName || 'arquivo'}]`;
     }
+
+    console.log(`[Evolution] Message from ${senderPhone}: text="${text?.slice(0, 50)}" mediaType=${mediaType} hasMediaUrl=${!!mediaUrl}`);
 
     // Skip if no content at all
     if (!text && !mediaUrl) return NextResponse.json({ ok: true });
