@@ -54,13 +54,23 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   if (channel.type === 'instagram') {
     if (action === 'connect') {
-      // Instagram uses token-based auth, mark as connected if token exists
       const config = channel.config as Record<string, string> | null;
       if (config?.accessToken) {
         await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
         return NextResponse.json({ ok: true, message: 'Instagram conectado' });
       }
       return NextResponse.json({ error: 'Configure o Access Token primeiro' }, { status: 400 });
+    }
+    if (action === 'disconnect') {
+      await prisma.channel.update({ where: { id: channelId }, data: { status: 'disconnected' } });
+      return NextResponse.json({ ok: true });
+    }
+  }
+
+  if (channel.type === 'webchat') {
+    if (action === 'connect') {
+      await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
+      return NextResponse.json({ ok: true, message: 'Webchat ativo! Use o widget.js no site do cliente.' });
     }
     if (action === 'disconnect') {
       await prisma.channel.update({ where: { id: channelId }, data: { status: 'disconnected' } });
