@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getSetting } from '@/lib/settings';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -64,8 +65,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
 
       if (provider === 'evolution') {
-        const evoUrl = process.env.EVOLUTION_API_URL;
-        const evoKey = process.env.EVOLUTION_API_KEY;
+        const evoUrl = await getSetting('EVOLUTION_API_URL');
+        const evoKey = await getSetting('EVOLUTION_API_KEY');
         if (!evoUrl || !evoKey) {
           return NextResponse.json({ error: 'Evolution API não configurada no servidor. Configure EVOLUTION_API_URL e EVOLUTION_API_KEY no .env' }, { status: 500 });
         }

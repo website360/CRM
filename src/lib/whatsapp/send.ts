@@ -1,3 +1,5 @@
+import { getSetting } from '@/lib/settings';
+
 // Unified WhatsApp message sender for all providers
 
 export async function sendWhatsAppMessage(
@@ -25,9 +27,8 @@ export async function sendWhatsAppMessage(
       body: JSON.stringify({ phone: to, message: text }),
     });
   } else if (provider === 'evolution') {
-    // Evolution uses server credentials from env
-    const serverUrl = (process.env.EVOLUTION_API_URL || '').replace(/\/$/, '');
-    const apiKey = process.env.EVOLUTION_API_KEY || '';
+    const serverUrl = ((await getSetting('EVOLUTION_API_URL')) || '').replace(/\/$/, '');
+    const apiKey = (await getSetting('EVOLUTION_API_KEY')) || '';
     const instanceName = config.instanceName || '';
 
     await fetch(`${serverUrl}/message/sendText/${instanceName}`, {

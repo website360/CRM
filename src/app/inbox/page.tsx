@@ -42,6 +42,7 @@ export default function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeChat, setActiveChat] = useState<ConversationDetail | null>(null);
   const [filter, setFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("open");
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [confirmCloseId, setConfirmCloseId] = useState<number | null>(null);
@@ -49,10 +50,10 @@ export default function InboxPage() {
   const loadConversations = useCallback(async () => {
     const params = new URLSearchParams();
     if (filter !== "all") params.set("type", filter);
-    params.set("status", "open");
+    if (statusFilter !== "all") params.set("status", statusFilter);
     const res = await fetch(`/api/inbox?${params}`);
     if (res.ok) setConversations(await res.json());
-  }, [filter]);
+  }, [filter, statusFilter]);
 
   const loadChat = useCallback(async (id: number) => {
     const res = await fetch(`/api/inbox/${id}`);
@@ -119,13 +120,27 @@ export default function InboxPage() {
         {/* Conversation List */}
         <div className="w-96 shrink-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] flex flex-col">
           {/* Filters */}
-          <div className="flex items-center gap-1 p-3 border-b border-gray-200 dark:border-gray-800">
-            {filters.map((f) => (
-              <button key={f.key} onClick={() => setFilter(f.key)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${filter === f.key ? "bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"}`}>
-                {f.label}
-              </button>
-            ))}
+          <div className="p-3 border-b border-gray-200 dark:border-gray-800 space-y-2">
+            <div className="flex items-center gap-1">
+              {filters.map((f) => (
+                <button key={f.key} onClick={() => setFilter(f.key)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${filter === f.key ? "bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"}`}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1">
+              {[
+                { key: "open", label: "Abertas" },
+                { key: "closed", label: "Encerradas" },
+                { key: "all", label: "Todas" },
+              ].map((s) => (
+                <button key={s.key} onClick={() => setStatusFilter(s.key)}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition ${statusFilter === s.key ? "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"}`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* List */}
