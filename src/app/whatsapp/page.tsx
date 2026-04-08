@@ -198,7 +198,7 @@ export default function WhatsAppPage() {
                   <div>
                     <h3 className="font-semibold text-gray-800 dark:text-white/90">{inst.name}</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {inst.phone || "Não conectado"}
+                      {inst.phone || "Não conectado"} · <span className="font-mono select-all">ID: {inst.id}</span>
                     </p>
                   </div>
                   <StatusDot status={inst.status} />
