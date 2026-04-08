@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 
 type Instance = {
   id: number;
+  type: string;
   name: string;
   phone: string | null;
   status: string;
   qrCode: string | null;
+  config: Record<string, string> | null;
   aiEnabled: boolean;
   aiPrompt: string | null;
   aiModel: string;
@@ -628,90 +630,149 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
 }
 
 function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; onClose: () => void; onSaved: () => void }) {
+  const cfg = instance.config || {};
   const [name, setName] = useState(instance.name);
   const [welcomeMessage, setWelcomeMessage] = useState(instance.welcomeMessage || "");
   const [aiEnabled, setAiEnabled] = useState(instance.aiEnabled);
   const [aiPrompt, setAiPrompt] = useState(instance.aiPrompt || "");
   const [aiModel, setAiModel] = useState(instance.aiModel);
+  // Webchat fields
+  const [widgetColor, setWidgetColor] = useState(cfg.color || "#465FFF");
+  const [widgetTitle, setWidgetTitle] = useState(cfg.title || "Suporte");
+  const [widgetSubtitle, setWidgetSubtitle] = useState(cfg.subtitle || "Estamos online");
+  const [agentName, setAgentName] = useState(cfg.agentName || "Atendente");
+  const [agentAvatar, setAgentAvatar] = useState(cfg.agentAvatar || "");
+  const [closeMessage, setCloseMessage] = useState(cfg.closeMessage || "Obrigado pelo contato! Até a próxima.");
+  // Instagram fields
+  const [accessToken, setAccessToken] = useState(cfg.accessToken || "");
+  const [pageId, setPageId] = useState(cfg.pageId || "");
   const [saving, setSaving] = useState(false);
+
+  const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    let config: Record<string, unknown> | undefined;
+    if (instance.type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null, closeMessage };
+    if (instance.type === "instagram") config = { accessToken, pageId };
     await fetch(`/api/channels/${instance.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, welcomeMessage, aiEnabled, aiPrompt, aiModel }),
+      body: JSON.stringify({ name, welcomeMessage, aiEnabled, aiPrompt, aiModel, config }),
     });
     setSaving(false);
     onSaved();
   }
 
   return (
-    <div className="mb-5 bg-white rounded-2xl p-6 shadow-[0_0_20px_rgba(0,0,0,0.04)] border border-gray-200 dark:border-gray-800">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800 dark:text-white/90">Configurar: {instance.name}</h3>
-        <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:text-white/90">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+    <div className="mb-5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-6">
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h3 className="font-semibold text-gray-800 dark:text-white/90">Configurar: {instance.name}</h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Tipo: {instance.type} · ID: {instance.id}</p>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nome</label>
-          <input value={name} onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nome</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Mensagem de boas-vindas</label>
-          <textarea value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} rows={2}
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Mensagem de boas-vindas</label>
+          <textarea value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} rows={2} className={inputCls + " resize-none"} />
         </div>
 
+        {/* Webchat config */}
+        {instance.type === "webchat" && (
+          <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-4">
+            <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">Aparência do Widget</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Cor</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={widgetColor} onChange={(e) => setWidgetColor(e.target.value)} className="w-10 h-10 rounded border-0 cursor-pointer" />
+                  <input value={widgetColor} onChange={(e) => setWidgetColor(e.target.value)} className={inputCls + " font-mono"} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nome do atendente</label>
+                <input value={agentName} onChange={(e) => setAgentName(e.target.value)} className={inputCls} placeholder="Atendente" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Título</label>
+                <input value={widgetTitle} onChange={(e) => setWidgetTitle(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Subtítulo</label>
+                <input value={widgetSubtitle} onChange={(e) => setWidgetSubtitle(e.target.value)} className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Foto do atendente (URL)</label>
+              <input value={agentAvatar} onChange={(e) => setAgentAvatar(e.target.value)} className={inputCls} placeholder="https://exemplo.com/foto.jpg" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Mensagem de encerramento</label>
+              <input value={closeMessage} onChange={(e) => setCloseMessage(e.target.value)} className={inputCls} placeholder="Obrigado pelo contato!" />
+            </div>
+          </div>
+        )}
+
+        {/* Instagram config */}
+        {instance.type === "instagram" && (
+          <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-4">
+            <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">Configuração Instagram</h4>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Page/IG User ID</label>
+              <input value={pageId} onChange={(e) => setPageId(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Access Token</label>
+              <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)} className={inputCls + " font-mono"} />
+            </div>
+          </div>
+        )}
+
         {/* AI Config */}
-        <div className="border-t border-gray-100 pt-4">
+        <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
           <div className="flex items-center justify-between mb-3">
             <label className="text-sm font-semibold text-gray-800 dark:text-white/90">Agente de IA</label>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" checked={aiEnabled} onChange={(e) => setAiEnabled(e.target.checked)} className="sr-only peer" />
-              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-500"></div>
+              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-500" />
             </label>
           </div>
-
           {aiEnabled && (
             <>
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Modelo</label>
-                <select value={aiModel} onChange={(e) => setAiModel(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Modelo</label>
+                <select value={aiModel} onChange={(e) => setAiModel(e.target.value)} className={inputCls}>
                   <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (rápido)</option>
                   <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (mais rápido)</option>
                   <option value="claude-opus-4-6">Claude Opus 4.6 (mais inteligente)</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  Prompt de treinamento
-                  <span className="text-gray-500 dark:text-gray-400 font-normal"> — instrua a IA sobre como responder</span>
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Prompt de treinamento</label>
                 <textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} rows={6}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none font-mono"
-                  placeholder={`Você é um assistente da empresa "Nome".
-Responda de forma educada e objetiva.
-Nossos serviços são: ...
-Nosso horário é: ...
-Se não souber, transfira para um humano.`} />
+                  className={inputCls + " resize-none font-mono"}
+                  placeholder={`Você é um assistente da empresa "Nome".\nResponda de forma educada e objetiva.\nNossos serviços são: ...\nSe não souber, transfira para um humano.`} />
               </div>
             </>
           )}
         </div>
 
         <div className="flex gap-2 pt-2">
-          <button type="submit" disabled={saving} className="px-5 py-2.5 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-500-dark transition disabled:opacity-50">
-            {saving ? "Salvando..." : "Salvar Configurações"}
+          <button type="submit" disabled={saving} className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition disabled:opacity-50">
+            {saving ? "Salvando..." : "Salvar"}
           </button>
-          <button type="button" onClick={onClose} className="px-5 py-2.5 bg-gray-100 text-gray-500 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-200 transition">
+          <button type="button" onClick={onClose} className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.03] transition">
             Cancelar
           </button>
         </div>
