@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import ConfirmModal from "@/components/ConfirmModal";
+
+const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
 type Channel = { name: string; type: string; config: unknown; aiEnabled?: boolean };
 type ConvMessage = { content: string; sender: string };
@@ -45,7 +48,11 @@ export default function InboxPage() {
   const [statusFilter, setStatusFilter] = useState("open");
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [confirmCloseId, setConfirmCloseId] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(async () => {
     const params = new URLSearchParams();
@@ -92,6 +99,28 @@ export default function InboxPage() {
       body: JSON.stringify({ mode }),
     });
     loadChat(activeChat.id); loadConversations();
+  }
+
+  async function handleUploadImage(file: File) {
+    if (!activeChat) return;
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+      const { url } = await uploadRes.json();
+      if (url) {
+        const proto = window.location.protocol;
+        const host = window.location.host;
+        const fullUrl = url.startsWith('/') ? `${proto}//${host}${url}` : url;
+        const imgMsg = `[imagem: ${fullUrl}]`;
+        await fetch(`/api/inbox/${activeChat.id}/send`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: imgMsg }),
+        });
+        loadChat(activeChat.id);
+      }
+    } catch {} finally { setUploading(false); }
   }
 
   async function handleClose(conversationId: number) {
@@ -244,38 +273,104 @@ export default function InboxPage() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-gray-50 dark:bg-gray-900/50">
-              {activeChat.messages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.sender === "contact" ? "justify-start" : "justify-end"}`}>
-                  <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
-                    msg.sender === "contact"
-                      ? "bg-white dark:bg-gray-800 text-gray-800 dark:text-white/90 rounded-bl-md"
-                      : msg.sender === "ai"
-                        ? "bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-200 rounded-br-md"
-                        : "bg-brand-500 text-white rounded-br-md"
-                  }`}>
-                    {msg.sender !== "contact" && (
-                      <span className="text-[10px] font-semibold opacity-70 block mb-0.5">
-                        {msg.sender === "ai" ? "IA" : "Atendente"}
-                      </span>
+              {activeChat.messages.map((msg) => {
+                const isContact = msg.sender === "contact";
+                const isAi = msg.sender === "ai";
+                const isImage = msg.content.startsWith("[imagem:");
+                const imageUrl = isImage ? msg.content.match(/\[imagem:\s*(.*?)\]/)?.[1] : null;
+
+                return (
+                  <div key={msg.id} className={`flex items-end gap-2 ${isContact ? "justify-start" : "justify-end"}`}>
+                    {/* Agent avatar (left side for contact, right side for agent) */}
+                    {isContact && (
+                      <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0 mb-1">
+                        <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">
+                          {(activeChat.contactName || "V").charAt(0).toUpperCase()}
+                        </span>
+                      </div>
                     )}
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                    <span className="text-[10px] opacity-50 block text-right mt-1">
-                      {new Date(msg.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
+                    <div className={`max-w-[65%] px-4 py-2.5 rounded-2xl text-sm ${
+                      isContact
+                        ? "bg-white dark:bg-gray-800 text-gray-800 dark:text-white/90 rounded-bl-md"
+                        : isAi
+                          ? "bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-200 rounded-br-md"
+                          : "bg-brand-500 text-white rounded-br-md"
+                    }`}>
+                      {!isContact && (
+                        <span className="text-[10px] font-semibold opacity-70 block mb-0.5">
+                          {isAi ? "IA" : "Atendente"}
+                        </span>
+                      )}
+                      {imageUrl ? (
+                        <a href={imageUrl} target="_blank" rel="noopener noreferrer">
+                          <img src={imageUrl} alt="" className="rounded-lg max-w-full max-h-60 object-cover" />
+                        </a>
+                      ) : (
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      )}
+                      <span className="text-[10px] opacity-50 block text-right mt-1">
+                        {new Date(msg.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    {!isContact && (
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mb-1 ${isAi ? "bg-purple-100 dark:bg-purple-900/30" : "bg-brand-500"}`}>
+                        <span className="text-[10px] font-bold text-white">
+                          {isAi ? "IA" : "A"}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input */}
-            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
-              <div className="flex gap-2">
+            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 relative">
+              {/* Emoji Picker */}
+              {showEmoji && (
+                <div className="absolute bottom-16 left-4 z-50">
+                  <div className="fixed inset-0" onClick={() => setShowEmoji(false)} />
+                  <div className="relative">
+                    <EmojiPicker
+                      onEmojiClick={(e: { emoji: string }) => { setNewMessage((prev) => prev + e.emoji); setShowEmoji(false); }}
+                      width={320}
+                      height={400}
+                      searchPlaceholder="Buscar emoji..."
+                      previewConfig={{ showPreview: false }}
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                {/* Emoji button */}
+                <button onClick={() => setShowEmoji(!showEmoji)} type="button"
+                  className="p-2.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+                {/* Upload button */}
+                <button onClick={() => fileInputRef.current?.click()} type="button" disabled={uploading}
+                  className="p-2.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition disabled:opacity-50">
+                  {uploading ? (
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                  )}
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadImage(f); e.target.value = ''; }} />
+                {/* Message input */}
                 <input value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
                   placeholder={activeChat.mode === "ai" ? "IA respondendo... digite para enviar como humano" : "Digite sua mensagem..."}
                   className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition placeholder:text-gray-400 dark:placeholder:text-gray-500" />
+                {/* Send button */}
                 <button onClick={handleSend} disabled={sending || !newMessage.trim()}
-                  className="px-4 py-2.5 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition disabled:opacity-50">
+                  className="p-2.5 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition disabled:opacity-50">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
