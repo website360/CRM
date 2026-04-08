@@ -42,7 +42,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
   }
 
-  const content = mediaUrl ? `[imagem: ${mediaUrl}]` : (finalText || text);
+  // Save original text in DB (without signature), signature shows as label in Inbox
+  const content = mediaUrl ? `[imagem: ${mediaUrl}]` : (text || '');
   const message = await prisma.message.create({
     data: {
       conversationId: conversation.id,
