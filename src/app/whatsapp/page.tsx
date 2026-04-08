@@ -509,7 +509,13 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [pageId, setPageId] = useState("");
+  const [provider, setProvider] = useState("meta"); // meta, zapi, evolution
   const [phoneNumberId, setPhoneNumberId] = useState("");
+  const [zapiInstanceId, setZapiInstanceId] = useState("");
+  const [zapiToken, setZapiToken] = useState("");
+  const [evoServerUrl, setEvoServerUrl] = useState("");
+  const [evoApiKey, setEvoApiKey] = useState("");
+  const [evoInstanceName, setEvoInstanceName] = useState("");
   const [widgetColor, setWidgetColor] = useState("#465FFF");
   const [widgetTitle, setWidgetTitle] = useState("Suporte");
   const [widgetSubtitle, setWidgetSubtitle] = useState("Estamos online");
@@ -523,7 +529,11 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
     if (!name.trim()) return;
     setSaving(true);
     let config: Record<string, unknown> | undefined;
-    if (type === "whatsapp") config = { accessToken, phoneNumberId };
+    if (type === "whatsapp") {
+      if (provider === "meta") config = { provider: "meta", accessToken, phoneNumberId };
+      else if (provider === "zapi") config = { provider: "zapi", instanceId: zapiInstanceId, token: zapiToken };
+      else if (provider === "evolution") config = { provider: "evolution", serverUrl: evoServerUrl, apiKey: evoApiKey, instanceName: evoInstanceName };
+    }
     if (type === "instagram") config = { accessToken, pageId };
     if (type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null, closeMessage };
     await fetch("/api/channels", {
@@ -562,19 +572,83 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
         {type === "whatsapp" && (
           <>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Phone Number ID</label>
-              <input value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
-                placeholder="Ex: 123456789012345" />
-              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Encontre em Meta Business &gt; WhatsApp &gt; Configurações da API</p>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Provedor</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: "meta", label: "Meta Cloud API", desc: "Oficial" },
+                  { key: "zapi", label: "Z-API", desc: "z-api.io" },
+                  { key: "evolution", label: "Evolution API", desc: "Self-hosted" },
+                ].map((p) => (
+                  <button key={p.key} type="button" onClick={() => setProvider(p.key)}
+                    className={`px-3 py-3 rounded-lg border text-left transition ${provider === p.key
+                      ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10 ring-1 ring-brand-500"
+                      : "border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-white/5"}`}>
+                    <span className={`text-sm font-medium ${provider === p.key ? "text-brand-600 dark:text-brand-400" : "text-gray-800 dark:text-white/90"}`}>{p.label}</span>
+                    <span className="block text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{p.desc}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Access Token (permanente)</label>
-              <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
-                placeholder="EAAxxxxxxx..." />
-              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Gere um token permanente em developers.facebook.com &gt; seu app &gt; WhatsApp &gt; Configuração</p>
-            </div>
+
+            {provider === "meta" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Phone Number ID</label>
+                  <input value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                    placeholder="123456789012345" />
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Meta Business &gt; WhatsApp &gt; Configurações da API</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Access Token</label>
+                  <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                    placeholder="EAAxxxxxxx..." />
+                </div>
+              </>
+            )}
+
+            {provider === "zapi" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Instance ID</label>
+                  <input value={zapiInstanceId} onChange={(e) => setZapiInstanceId(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                    placeholder="Seu Instance ID da Z-API" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Token</label>
+                  <input value={zapiToken} onChange={(e) => setZapiToken(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                    placeholder="Seu Token da Z-API" />
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Encontre em z-api.io &gt; sua instância &gt; Token</p>
+                </div>
+              </>
+            )}
+
+            {provider === "evolution" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">URL do Servidor</label>
+                  <input value={evoServerUrl} onChange={(e) => setEvoServerUrl(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                    placeholder="https://sua-evolution.com" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">API Key</label>
+                  <input value={evoApiKey} onChange={(e) => setEvoApiKey(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 font-mono focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                    placeholder="Sua API Key da Evolution" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nome da Instância</label>
+                  <input value={evoInstanceName} onChange={(e) => setEvoInstanceName(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                    placeholder="minha-instancia" />
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Nome usado na Evolution API para identificar esta conexão</p>
+                </div>
+              </>
+            )}
           </>
         )}
         {type === "webchat" && (
@@ -680,7 +754,12 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
     e.preventDefault();
     setSaving(true);
     let config: Record<string, unknown> | undefined;
-    if (instance.type === "whatsapp") config = { accessToken, phoneNumberId: (cfg.phoneNumberId || '') };
+    if (instance.type === "whatsapp") {
+      if (cfg.provider === 'meta') config = { provider: 'meta', accessToken, phoneNumberId: cfg.phoneNumberId || '' };
+      else if (cfg.provider === 'zapi') config = { provider: 'zapi', instanceId: cfg.instanceId || '', token: accessToken };
+      else if (cfg.provider === 'evolution') config = { provider: 'evolution', serverUrl: cfg.serverUrl || '', apiKey: accessToken, instanceName: cfg.instanceName || '' };
+      else config = { provider: 'meta', accessToken, phoneNumberId: cfg.phoneNumberId || '' };
+    }
     if (instance.type === "webchat") config = { color: widgetColor, title: widgetTitle, subtitle: widgetSubtitle, agentName, agentAvatar: agentAvatar || null, closeMessage };
     if (instance.type === "instagram") config = { accessToken, pageId };
     await fetch(`/api/channels/${instance.id}`, {
@@ -748,19 +827,52 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
           </div>
         )}
 
-        {/* WhatsApp Cloud API config */}
+        {/* WhatsApp provider config */}
         {instance.type === "whatsapp" && (
           <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-4">
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">WhatsApp Cloud API</h4>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Phone Number ID</label>
-              <input value={cfg.phoneNumberId || ''} readOnly className={inputCls + " font-mono bg-gray-50 dark:bg-gray-900"} />
-              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Definido na criação do canal</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Access Token</label>
-              <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)} className={inputCls + " font-mono"} placeholder="EAAxxxxxxx..." />
-            </div>
+            <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">
+              Provedor: <span className="text-brand-500">{cfg.provider === 'zapi' ? 'Z-API' : cfg.provider === 'evolution' ? 'Evolution API' : 'Meta Cloud API'}</span>
+            </h4>
+            {cfg.provider === 'meta' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Phone Number ID</label>
+                  <input value={cfg.phoneNumberId || ''} readOnly className={inputCls + " font-mono bg-gray-50 dark:bg-gray-900"} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Access Token</label>
+                  <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)} className={inputCls + " font-mono"} placeholder="EAAxxxxxxx..." />
+                </div>
+              </>
+            )}
+            {cfg.provider === 'zapi' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Instance ID</label>
+                  <input value={cfg.instanceId || ''} readOnly className={inputCls + " font-mono bg-gray-50 dark:bg-gray-900"} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Token</label>
+                  <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)} className={inputCls + " font-mono"} />
+                </div>
+              </>
+            )}
+            {cfg.provider === 'evolution' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">URL do Servidor</label>
+                  <input value={cfg.serverUrl || ''} readOnly className={inputCls + " font-mono bg-gray-50 dark:bg-gray-900"} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">API Key</label>
+                  <input value={accessToken} onChange={(e) => setAccessToken(e.target.value)} className={inputCls + " font-mono"} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nome da Instância</label>
+                  <input value={cfg.instanceName || ''} readOnly className={inputCls + " font-mono bg-gray-50 dark:bg-gray-900"} />
+                </div>
+              </>
+            )}
           </div>
         )}
 

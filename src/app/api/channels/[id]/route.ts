@@ -37,22 +37,41 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const config = channel.config as Record<string, string> | null;
 
     if (channel.type === 'whatsapp') {
-      if (!config?.accessToken || !config?.phoneNumberId) {
-        return NextResponse.json({ error: 'Configure o Access Token e Phone Number ID primeiro' }, { status: 400 });
-      }
-      // Verify token works by calling the API
-      try {
-        const res = await fetch(`https://graph.facebook.com/v21.0/${config.phoneNumberId}`, {
-          headers: { Authorization: `Bearer ${config.accessToken}` },
-        });
-        if (!res.ok) {
-          return NextResponse.json({ error: 'Token inválido ou Phone Number ID incorreto' }, { status: 400 });
+      const provider = config?.provider || 'meta';
+
+      if (provider === 'meta') {
+        if (!config?.accessToken || !config?.phoneNumberId) {
+          return NextResponse.json({ error: 'Configure o Access Token e Phone Number ID' }, { status: 400 });
         }
-      } catch {
-        return NextResponse.json({ error: 'Erro ao verificar token' }, { status: 500 });
+        try {
+          const res = await fetch(`https://graph.facebook.com/v21.0/${config.phoneNumberId}`, {
+            headers: { Authorization: `Bearer ${config.accessToken}` },
+          });
+          if (!res.ok) return NextResponse.json({ error: 'Token inválido ou Phone Number ID incorreto' }, { status: 400 });
+        } catch {
+          return NextResponse.json({ error: 'Erro ao verificar token' }, { status: 500 });
+        }
+        await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
+        return NextResponse.json({ ok: true, message: 'Meta Cloud API conectado! Configure o webhook: /api/webhook/whatsapp' });
       }
-      await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
-      return NextResponse.json({ ok: true, message: 'WhatsApp Cloud API conectado! Configure o webhook no Meta Developer Portal.' });
+
+      if (provider === 'zapi') {
+        if (!config?.instanceId || !config?.token) {
+          return NextResponse.json({ error: 'Configure Instance ID e Token da Z-API' }, { status: 400 });
+        }
+        await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
+        return NextResponse.json({ ok: true, message: 'Z-API conectado! Configure o webhook na Z-API: /api/webhook/zapi?instance=' + config.instanceId });
+      }
+
+      if (provider === 'evolution') {
+        if (!config?.serverUrl || !config?.apiKey || !config?.instanceName) {
+          return NextResponse.json({ error: 'Configure URL, API Key e Nome da Instância' }, { status: 400 });
+        }
+        await prisma.channel.update({ where: { id: channelId }, data: { status: 'connected' } });
+        return NextResponse.json({ ok: true, message: 'Evolution API conectado! Configure o webhook na Evolution: /api/webhook/evolution' });
+      }
+
+      return NextResponse.json({ error: 'Provedor desconhecido' }, { status: 400 });
     }
 
     if (channel.type === 'instagram') {
