@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import ConfirmModal from "@/components/ConfirmModal";
 
 type Channel = { name: string; type: string; config: unknown; aiEnabled?: boolean };
 type ConvMessage = { content: string; sender: string };
@@ -43,6 +44,7 @@ export default function InboxPage() {
   const [filter, setFilter] = useState("all");
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [confirmCloseId, setConfirmCloseId] = useState<number | null>(null);
 
   const loadConversations = useCallback(async () => {
     const params = new URLSearchParams();
@@ -92,11 +94,11 @@ export default function InboxPage() {
   }
 
   async function handleClose(conversationId: number) {
-    if (!confirm('Encerrar esta conversa? O visitante iniciará uma nova conversa na próxima vez.')) return;
     await fetch(`/api/inbox/${conversationId}/takeover`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode: "human", status: "closed" }),
     });
+    setConfirmCloseId(null);
     if (activeChat?.id === conversationId) setActiveChat(null);
     loadConversations();
   }
@@ -218,7 +220,7 @@ export default function InboxPage() {
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${activeChat.mode === "ai" ? "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/25" : "bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/25"}`}>
                   {activeChat.mode === "ai" ? "Assumir Conversa" : "Devolver p/ IA"}
                 </button>
-                <button onClick={() => handleClose(activeChat.id)}
+                <button onClick={() => setConfirmCloseId(activeChat.id)}
                   className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500 hover:bg-error-100 dark:hover:bg-error-500/25 transition">
                   Encerrar
                 </button>
@@ -277,6 +279,18 @@ export default function InboxPage() {
           </div>
         )}
       </div>
+
+      {/* Close Confirmation Modal */}
+      {confirmCloseId && (
+        <ConfirmModal
+          title="Encerrar conversa"
+          message="Tem certeza que deseja encerrar esta conversa? Uma mensagem de despedida será enviada ao cliente."
+          confirmText="Encerrar"
+          variant="danger"
+          onCancel={() => setConfirmCloseId(null)}
+          onConfirm={() => handleClose(confirmCloseId)}
+        />
+      )}
     </div>
   );
 }

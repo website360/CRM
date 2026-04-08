@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import ConfirmModal from "@/components/ConfirmModal";
+import ImageUpload from "@/components/ImageUpload";
 
 type Instance = {
   id: number;
@@ -56,6 +58,7 @@ export default function WhatsAppPage() {
   const [sending, setSending] = useState(false);
   const [filterInstanceId, setFilterInstanceId] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Instance | null>(null);
 
   const loadInstances = useCallback(async () => {
     const res = await fetch("/api/channels");
@@ -270,11 +273,7 @@ export default function WhatsAppPage() {
                     Config
                   </button>
                   <button
-                    onClick={async () => {
-                      if (!confirm(`Deletar canal "${inst.name}"? Todas as conversas serão perdidas.`)) return;
-                      await fetch(`/api/channels/${inst.id}`, { method: 'DELETE' });
-                      loadInstances();
-                    }}
+                    onClick={() => setConfirmDelete(inst)}
                     className="px-3 py-2 text-xs font-medium rounded-lg bg-error-50 dark:bg-error-500/10 text-error-500 hover:bg-error-100 dark:hover:bg-error-500/20 transition"
                     title="Deletar canal"
                   >
@@ -464,6 +463,22 @@ export default function WhatsAppPage() {
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <ConfirmModal
+          title="Deletar canal"
+          message={`Tem certeza que deseja deletar "${confirmDelete.name}"? Todas as conversas e mensagens serão perdidas.`}
+          confirmText="Deletar"
+          variant="danger"
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={async () => {
+            const id = confirmDelete.id;
+            setConfirmDelete(null);
+            await fetch(`/api/channels/${id}`, { method: 'DELETE' });
+            loadInstances();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -577,13 +592,7 @@ function CreateInstanceForm({ onClose, onCreated }: { onClose: () => void; onCre
                   placeholder="Estamos online" />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Foto do atendente (URL)</label>
-              <input value={agentAvatar} onChange={(e) => setAgentAvatar(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
-                placeholder="https://exemplo.com/foto.jpg (opcional)" />
-              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Aparece ao lado das mensagens do atendente/IA no widget</p>
-            </div>
+            <ImageUpload value={agentAvatar} onChange={setAgentAvatar} label="Foto do atendente" />
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Mensagem de encerramento</label>
               <input value={closeMessage} onChange={(e) => setCloseMessage(e.target.value)}
@@ -713,10 +722,7 @@ function EditInstanceForm({ instance, onClose, onSaved }: { instance: Instance; 
                 <input value={widgetSubtitle} onChange={(e) => setWidgetSubtitle(e.target.value)} className={inputCls} />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Foto do atendente (URL)</label>
-              <input value={agentAvatar} onChange={(e) => setAgentAvatar(e.target.value)} className={inputCls} placeholder="https://exemplo.com/foto.jpg" />
-            </div>
+            <ImageUpload value={agentAvatar} onChange={setAgentAvatar} label="Foto do atendente" />
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Mensagem de encerramento</label>
               <input value={closeMessage} onChange={(e) => setCloseMessage(e.target.value)} className={inputCls} placeholder="Obrigado pelo contato!" />
