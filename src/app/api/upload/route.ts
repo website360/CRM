@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 
-// Use a persistent uploads directory outside the build
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+// Persistent uploads directory - outside the build/standalone folder
+const UPLOADS_DIR = process.env.UPLOADS_DIR || '/var/www/crm-lp-uploads';
 
 export async function POST(request: NextRequest) {
   try {
