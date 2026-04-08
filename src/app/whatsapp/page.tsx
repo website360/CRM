@@ -263,9 +263,20 @@ export default function WhatsAppPage() {
                   )}
                   <button
                     onClick={() => setShowEditForm(inst)}
-                    className="px-3 py-2 text-xs font-medium rounded-lg bg-gray-100 text-gray-500 dark:text-gray-400 hover:bg-gray-200 transition"
+                    className="px-3 py-2 text-xs font-medium rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
                   >
                     Config
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Deletar canal "${inst.name}"? Todas as conversas serão perdidas.`)) return;
+                      await fetch(`/api/channels/${inst.id}`, { method: 'DELETE' });
+                      loadInstances();
+                    }}
+                    className="px-3 py-2 text-xs font-medium rounded-lg bg-error-50 dark:bg-error-500/10 text-error-500 hover:bg-error-100 dark:hover:bg-error-500/20 transition"
+                    title="Deletar canal"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
                 </div>
               </div>
