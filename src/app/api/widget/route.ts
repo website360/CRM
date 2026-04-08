@@ -28,6 +28,10 @@ export async function GET(request: NextRequest) {
     if (!channel || channel.type !== 'webchat') return cors({ error: 'Canal não encontrado' }, { status: 404 });
 
     const config = (channel.config || {}) as Record<string, unknown>;
+    const baseUrl = request.nextUrl.origin;
+    const avatarPath = config.agentAvatar as string | null;
+    const agentAvatarUrl = avatarPath && avatarPath.startsWith('/') ? `${baseUrl}${avatarPath}` : avatarPath;
+
     return cors({
       name: channel.name,
       welcomeMessage: channel.welcomeMessage,
@@ -36,7 +40,7 @@ export async function GET(request: NextRequest) {
       subtitle: config.subtitle || 'Estamos online',
       position: config.position || 'right',
       agentName: config.agentName || 'Atendente',
-      agentAvatar: config.agentAvatar || null,
+      agentAvatar: agentAvatarUrl || null,
       askName: config.askName !== false,
     });
   }
