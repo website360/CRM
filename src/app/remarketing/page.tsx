@@ -16,6 +16,7 @@ export default function RemarketingPage() {
   const [showAudienceForm, setShowAudienceForm] = useState(false);
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [editAudience, setEditAudience] = useState<Audience | null>(null);
+  const [editCampaign, setEditCampaign] = useState<Campaign | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: number; name: string } | null>(null);
 
   const loadAll = useCallback(async () => {
@@ -31,6 +32,24 @@ export default function RemarketingPage() {
     await fetch(`/api/${type === "audience" ? "audiences" : "campaigns"}/${id}`, { method: "DELETE" });
     setConfirmDelete(null);
     toast("Deletado!");
+    loadAll();
+  }
+
+  async function handleDuplicateAudience(audience: Audience) {
+    await fetch("/api/audiences", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `${audience.name} (cópia)`, description: audience.description, filters: audience.filters }),
+    });
+    toast("Audiência duplicada!");
+    loadAll();
+  }
+
+  async function handleDuplicateCampaign(campaign: Campaign) {
+    await fetch("/api/campaigns", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `${campaign.name} (cópia)`, description: campaign.description, type: campaign.type, audienceId: campaign.audienceId, channelType: campaign.channelType, channelId: campaign.channelId, message: campaign.message }),
+    });
+    toast("Campanha duplicada!");
     loadAll();
   }
 
@@ -117,7 +136,15 @@ export default function RemarketingPage() {
                     className="px-3 py-1.5 text-xs font-medium rounded-lg bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500 hover:bg-success-100 dark:hover:bg-success-500/25 transition">
                     {c.status === "completed" ? "Reenviar" : "Enviar"}
                   </button>
-                  <button onClick={() => setConfirmDelete({ type: "campaign", id: c.id, name: c.name })}
+                  <button onClick={() => setEditCampaign(c)} title="Editar"
+                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                  </button>
+                  <button onClick={() => handleDuplicateCampaign(c)} title="Duplicar"
+                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                  </button>
+                  <button onClick={() => setConfirmDelete({ type: "campaign", id: c.id, name: c.name })} title="Deletar"
                     className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition">
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
@@ -155,10 +182,13 @@ export default function RemarketingPage() {
                   {a.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{a.description}</p>}
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => setEditAudience(a)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5">
+                  <button onClick={() => setEditAudience(a)} title="Editar" className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5">
                     <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </button>
-                  <button onClick={() => setConfirmDelete({ type: "audience", id: a.id, name: a.name })} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5">
+                  <button onClick={() => handleDuplicateAudience(a)} title="Duplicar" className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5">
+                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                  </button>
+                  <button onClick={() => setConfirmDelete({ type: "audience", id: a.id, name: a.name })} title="Deletar" className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5">
                     <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
                 </div>
@@ -189,6 +219,7 @@ export default function RemarketingPage() {
       {showAudienceForm && <AudienceFormModal onClose={() => setShowAudienceForm(false)} onSave={() => { setShowAudienceForm(false); loadAll(); }} />}
       {editAudience && <AudienceFormModal audience={editAudience} onClose={() => setEditAudience(null)} onSave={() => { setEditAudience(null); loadAll(); }} />}
       {showCampaignForm && <CampaignFormModal audiences={audiences} channels={channels} onClose={() => setShowCampaignForm(false)} onSave={() => { setShowCampaignForm(false); loadAll(); }} />}
+      {editCampaign && <CampaignFormModal campaign={editCampaign} audiences={audiences} channels={channels} onClose={() => setEditCampaign(null)} onSave={() => { setEditCampaign(null); loadAll(); }} />}
       {confirmDelete && <ConfirmModal title="Deletar" message={`Tem certeza que deseja deletar "${confirmDelete.name}"?`} confirmText="Deletar" variant="danger" onCancel={() => setConfirmDelete(null)} onConfirm={() => handleDelete(confirmDelete.type, confirmDelete.id)} />}
     </div>
   );
@@ -247,29 +278,32 @@ function AudienceFormModal({ audience, onClose, onSave }: { audience?: Audience;
 }
 
 // === Campaign Form ===
-function CampaignFormModal({ audiences, channels, onClose, onSave }: { audiences: Audience[]; channels: Channel[]; onClose: () => void; onSave: () => void }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [type, setType] = useState("manual");
-  const [audienceId, setAudienceId] = useState<string>("");
-  const [channelId, setChannelId] = useState<string>("");
-  const [message, setMessage] = useState("");
+function CampaignFormModal({ campaign, audiences, channels, onClose, onSave }: { campaign?: Campaign; audiences: Audience[]; channels: Channel[]; onClose: () => void; onSave: () => void }) {
+  const [name, setName] = useState(campaign?.name || "");
+  const [description, setDescription] = useState(campaign?.description || "");
+  const [type, setType] = useState(campaign?.type || "manual");
+  const [audienceId, setAudienceId] = useState<string>(campaign?.audienceId?.toString() || "");
+  const [channelId, setChannelId] = useState<string>(campaign?.channelId?.toString() || "");
+  const [message, setMessage] = useState(campaign?.message || "");
   const inp = "w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10";
 
   async function handleSubmit() {
     if (!name.trim()) return;
     const selectedChannel = channels.find((c) => c.id === parseInt(channelId));
-    await fetch("/api/campaigns", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name, description, type,
-        audienceId: audienceId ? parseInt(audienceId) : null,
-        channelId: channelId ? parseInt(channelId) : null,
-        channelType: selectedChannel?.type || null,
-        message,
-      }),
-    });
-    toast("Campanha criada!");
+    const payload = {
+      name, description, type,
+      audienceId: audienceId ? parseInt(audienceId) : null,
+      channelId: channelId ? parseInt(channelId) : null,
+      channelType: selectedChannel?.type || null,
+      message,
+    };
+    if (campaign) {
+      await fetch(`/api/campaigns/${campaign.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      toast("Campanha atualizada!");
+    } else {
+      await fetch("/api/campaigns", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      toast("Campanha criada!");
+    }
     onSave();
   }
 
@@ -277,7 +311,7 @@ function CampaignFormModal({ audiences, channels, onClose, onSave }: { audiences
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">Nova Campanha</h3>
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">{campaign ? "Editar Campanha" : "Nova Campanha"}</h3>
         <div className="space-y-3">
           <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nome *</label><input value={name} onChange={(e) => setName(e.target.value)} className={inp} placeholder="Nome da campanha" /></div>
           <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Descrição</label><input value={description} onChange={(e) => setDescription(e.target.value)} className={inp} /></div>
@@ -312,7 +346,7 @@ function CampaignFormModal({ audiences, channels, onClose, onSave }: { audiences
           </div>
         </div>
         <div className="flex gap-2 mt-5">
-          <button onClick={handleSubmit} className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition">Criar Campanha</button>
+          <button onClick={handleSubmit} className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition">{campaign ? "Salvar" : "Criar Campanha"}</button>
           <button onClick={onClose} className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition">Cancelar</button>
         </div>
       </div>
