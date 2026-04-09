@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import ConfirmModal from "@/components/ConfirmModal";
+import { toast } from "@/components/Toast";
 
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
@@ -272,7 +273,7 @@ export default function InboxPage() {
                         contactPhone: activeChat.channel.type === "whatsapp" && !activeChat.contactId.includes('@') ? activeChat.contactId : null,
                       }),
                     });
-                    alert("Contato enviado para o CRM!");
+                    toast("Contato enviado para o CRM!");
                   }
                 }}
                   className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-500/25 transition">

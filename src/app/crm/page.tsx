@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, DragStartEvent, DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, DragStartEvent, DragEndEvent, DragOverEvent, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { useSortable } from "@dnd-kit/sortable";
 import ConfirmModal from "@/components/ConfirmModal";
+import { toast } from "@/components/Toast";
 
 type Deal = {
   id: number; stageId: number; title: string; value: number | null;
@@ -19,14 +20,14 @@ type Pipeline = { id: number; name: string; stages: Stage[] };
 export default function CRMPage() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [activePipeline, setActivePipeline] = useState<number>(0);
-  const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
+  const [dragDeal, setDragDeal] = useState<Deal | null>(null);
   const [showAddDeal, setShowAddDeal] = useState<number | null>(null);
   const [showEditDeal, setShowEditDeal] = useState<Deal | null>(null);
   const [showAddStage, setShowAddStage] = useState(false);
   const [showEditStage, setShowEditStage] = useState<Stage | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: number; name: string } | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const load = useCallback(async () => {
     const res = await fetch("/api/pipelines");
@@ -42,28 +43,54 @@ export default function CRMPage() {
   const pipeline = pipelines.find((p) => p.id === activePipeline);
 
   function handleDragStart(event: DragStartEvent) {
-    const deal = pipeline?.stages.flatMap((s) => s.deals).find((d) => d.id === event.active.id);
-    setActiveDeal(deal || null);
+    const id = event.active.id as number;
+    const deal = pipeline?.stages.flatMap((s) => s.deals).find((d) => d.id === id);
+    setDragDeal(deal || null);
+  }
+
+  function handleDragOver(_event: DragOverEvent) {
+    // Visual feedback handled by useDroppable isOver
   }
 
   async function handleDragEnd(event: DragEndEvent) {
-    setActiveDeal(null);
     const { active, over } = event;
+    setDragDeal(null);
     if (!over || !pipeline) return;
 
     const dealId = active.id as number;
-    const overId = over.id;
+    const overId = over.id as string;
 
-    // Find which stage the deal was dropped on
+    // The droppable IDs are "stage-{id}"
     let targetStageId: number | null = null;
-    for (const stage of pipeline.stages) {
-      if (stage.id === overId || stage.deals.some((d) => d.id === overId)) {
-        targetStageId = stage.id;
-        break;
-      }
+
+    if (typeof overId === 'string' && overId.startsWith('stage-')) {
+      targetStageId = parseInt(overId.replace('stage-', ''));
+    } else {
+      // Dropped on a deal card - find its stage
+      const overIdNum = typeof overId === 'string' ? parseInt(overId) : overId;
+      const overDeal = pipeline.stages.flatMap((s) => s.deals).find((d) => d.id === overIdNum);
+      if (overDeal) targetStageId = overDeal.stageId;
     }
 
     if (!targetStageId) return;
+
+    // Check if deal is already in this stage
+    const deal = pipeline.stages.flatMap((s) => s.deals).find((d) => d.id === dealId);
+    if (deal && deal.stageId === targetStageId) return;
+
+    // Optimistic update
+    setPipelines((prev) => prev.map((p) => {
+      if (p.id !== activePipeline) return p;
+      return {
+        ...p,
+        stages: p.stages.map((s) => ({
+          ...s,
+          deals: s.id === targetStageId
+            ? [...s.deals.filter((d) => d.id !== dealId), { ...deal!, stageId: targetStageId! }]
+            : s.deals.filter((d) => d.id !== dealId),
+        })),
+      };
+    }));
 
     await fetch(`/api/deals/${dealId}`, {
       method: "PUT",
@@ -74,22 +101,16 @@ export default function CRMPage() {
   }
 
   async function handleAddDeal(stageId: number, data: Record<string, unknown>) {
-    await fetch("/api/deals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stageId, ...data }),
-    });
+    await fetch("/api/deals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stageId, ...data }) });
     setShowAddDeal(null);
+    toast("Negócio criado!");
     load();
   }
 
   async function handleUpdateDeal(dealId: number, data: Record<string, unknown>) {
-    await fetch(`/api/deals/${dealId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
+    await fetch(`/api/deals/${dealId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
     setShowEditDeal(null);
+    toast("Negócio atualizado!");
     load();
   }
 
@@ -97,25 +118,19 @@ export default function CRMPage() {
     if (type === "deal") await fetch(`/api/deals/${id}`, { method: "DELETE" });
     if (type === "stage") await fetch(`/api/pipelines/${activePipeline}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "deleteStage", stageId: id }) });
     setConfirmDelete(null);
+    toast("Deletado!");
     load();
   }
 
   async function handleAddStage(name: string, color: string) {
-    await fetch(`/api/pipelines/${activePipeline}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "addStage", name, color }),
-    });
+    await fetch(`/api/pipelines/${activePipeline}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "addStage", name, color }) });
     setShowAddStage(false);
+    toast("Etapa criada!");
     load();
   }
 
   async function handleUpdateStage(stageId: number, name: string, color: string) {
-    await fetch(`/api/pipelines/${activePipeline}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "updateStage", stageId, name, color }),
-    });
+    await fetch(`/api/pipelines/${activePipeline}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "updateStage", stageId, name, color }) });
     setShowEditStage(null);
     load();
   }
@@ -125,7 +140,6 @@ export default function CRMPage() {
 
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div>
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">CRM</h2>
@@ -133,65 +147,37 @@ export default function CRMPage() {
             {totalDeals} negócios · R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowAddStage(true)}
-            className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition">
-            + Etapa
-          </button>
-        </div>
+        <button onClick={() => setShowAddStage(true)}
+          className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+          + Etapa
+        </button>
       </div>
 
-      {/* Kanban Board */}
-      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
         <div className="flex-1 overflow-x-auto">
           <div className="flex gap-4 h-full min-w-max pb-4">
             {pipeline?.stages.map((stage) => (
-              <div key={stage.id} className="w-72 shrink-0 flex flex-col">
-                {/* Stage Header */}
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stage.color }} />
-                    <span className="text-sm font-semibold text-gray-800 dark:text-white/90">{stage.name}</span>
-                    <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{stage.deals.length}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setShowEditStage(stage)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5 transition">
-                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                    </button>
-                    <button onClick={() => setConfirmDelete({ type: "stage", id: stage.id, name: stage.name })} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5 transition">
-                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Deals List */}
-                <SortableContext items={stage.deals.map((d) => d.id)} strategy={verticalListSortingStrategy}>
-                  <div className="flex-1 space-y-2 min-h-[100px] rounded-xl bg-gray-50 dark:bg-gray-900/30 p-2" id={`stage-${stage.id}`}>
-                    {stage.deals.map((deal) => (
-                      <DealCard key={deal.id} deal={deal} stageColor={stage.color} onClick={() => setShowEditDeal(deal)} onDelete={() => setConfirmDelete({ type: "deal", id: deal.id, name: deal.title })} />
-                    ))}
-                    {/* Drop zone */}
-                    <DroppableZone stageId={stage.id} />
-                  </div>
-                </SortableContext>
-
-                {/* Add Deal */}
-                <button onClick={() => setShowAddDeal(stage.id)}
-                  className="mt-2 w-full py-2 text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-brand-500 dark:hover:text-brand-400 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition flex items-center justify-center gap-1">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                  Adicionar
-                </button>
-              </div>
+              <StageColumn key={stage.id} stage={stage}
+                onAddDeal={() => setShowAddDeal(stage.id)}
+                onEditDeal={setShowEditDeal}
+                onEditStage={() => setShowEditStage(stage)}
+                onDeleteStage={() => setConfirmDelete({ type: "stage", id: stage.id, name: stage.name })}
+                onDeleteDeal={(d) => setConfirmDelete({ type: "deal", id: d.id, name: d.title })}
+              />
             ))}
           </div>
         </div>
 
-        <DragOverlay>
-          {activeDeal && <DealCardOverlay deal={activeDeal} />}
+        <DragOverlay dropAnimation={null}>
+          {dragDeal && (
+            <div className="rounded-xl border border-brand-300 bg-white dark:bg-gray-800 p-3 shadow-xl w-72 rotate-2">
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">{dragDeal.title}</p>
+              {dragDeal.contactName && <p className="text-xs text-gray-500 mt-0.5">{dragDeal.contactName}</p>}
+            </div>
+          )}
         </DragOverlay>
       </DndContext>
 
-      {/* Modals */}
       {showAddDeal !== null && <DealFormModal stageId={showAddDeal} onSave={(data) => handleAddDeal(showAddDeal, data)} onClose={() => setShowAddDeal(null)} />}
       {showEditDeal && <DealFormModal deal={showEditDeal} stageId={showEditDeal.stageId} onSave={(data) => handleUpdateDeal(showEditDeal.id, data)} onClose={() => setShowEditDeal(null)} onDelete={() => { setShowEditDeal(null); setConfirmDelete({ type: "deal", id: showEditDeal.id, name: showEditDeal.title }); }} />}
       {showAddStage && <StageFormModal onSave={handleAddStage} onClose={() => setShowAddStage(false)} />}
@@ -201,10 +187,56 @@ export default function CRMPage() {
   );
 }
 
-// === Deal Card ===
+// === Stage Column with Droppable ===
+function StageColumn({ stage, onAddDeal, onEditDeal, onEditStage, onDeleteStage, onDeleteDeal }: {
+  stage: Stage; onAddDeal: () => void; onEditDeal: (d: Deal) => void;
+  onEditStage: () => void; onDeleteStage: () => void; onDeleteDeal: (d: Deal) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `stage-${stage.id}` });
+
+  return (
+    <div className="w-72 shrink-0 flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3 px-1">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stage.color }} />
+          <span className="text-sm font-semibold text-gray-800 dark:text-white/90">{stage.name}</span>
+          <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{stage.deals.length}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={onEditStage} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5 transition">
+            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+          </button>
+          <button onClick={onDeleteStage} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/5 transition">
+            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Drop zone */}
+      <div ref={setNodeRef}
+        className={`flex-1 space-y-2 min-h-[100px] rounded-xl p-2 transition-colors ${isOver ? 'bg-brand-50 dark:bg-brand-500/10 ring-2 ring-brand-300 dark:ring-brand-500/30' : 'bg-gray-50 dark:bg-gray-900/30'}`}>
+        {stage.deals.map((deal) => (
+          <DealCard key={deal.id} deal={deal} stageColor={stage.color} onClick={() => onEditDeal(deal)} onDelete={() => onDeleteDeal(deal)} />
+        ))}
+        {stage.deals.length === 0 && !isOver && (
+          <p className="text-center text-xs text-gray-400 dark:text-gray-600 py-8">Arraste um negócio aqui</p>
+        )}
+      </div>
+
+      <button onClick={onAddDeal}
+        className="mt-2 w-full py-2 text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-brand-500 dark:hover:text-brand-400 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition flex items-center justify-center gap-1">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+        Adicionar
+      </button>
+    </div>
+  );
+}
+
+// === Deal Card (Draggable) ===
 function DealCard({ deal, stageColor, onClick, onDelete }: { deal: Deal; stageColor: string; onClick: () => void; onDelete: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 };
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}
@@ -236,20 +268,6 @@ function DealCard({ deal, stageColor, onClick, onDelete }: { deal: Deal; stageCo
       )}
     </div>
   );
-}
-
-function DealCardOverlay({ deal }: { deal: Deal }) {
-  return (
-    <div className="rounded-xl border border-brand-300 bg-white dark:bg-gray-800 p-3 shadow-lg w-72 opacity-90">
-      <p className="text-sm font-medium text-gray-800 dark:text-white/90">{deal.title}</p>
-      {deal.contactName && <p className="text-xs text-gray-500 mt-0.5">{deal.contactName}</p>}
-    </div>
-  );
-}
-
-function DroppableZone({ stageId }: { stageId: number }) {
-  const { setNodeRef, isOver } = useSortable({ id: `drop-${stageId}`, data: { type: 'stage', stageId } });
-  return <div ref={setNodeRef} className={`min-h-[40px] rounded-lg border-2 border-dashed transition ${isOver ? 'border-brand-400 bg-brand-50/50 dark:bg-brand-500/5' : 'border-transparent'}`} />;
 }
 
 // === Deal Form Modal ===

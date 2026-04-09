@@ -3,6 +3,7 @@ import "./globals.css";
 import Sidebar from "../components/Sidebar";
 import ThemeProvider from "../components/ThemeProvider";
 import HeaderClient from "../components/HeaderClient";
+import ToastProvider from "../components/Toast";
 
 export const metadata: Metadata = {
   title: "CRM LP",
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               </main>
             </div>
           </div>
+          <ToastProvider />
         </ThemeProvider>
       </body>
     </html>

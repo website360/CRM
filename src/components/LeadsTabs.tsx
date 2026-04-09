@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { toast } from "@/components/Toast";
 
 type Lead = { id: number; name: string; email: string; phone: string | null; source: string; status: string; notes: string | null; metadata: unknown; createdAt: string; };
 
@@ -38,6 +39,7 @@ export default function LeadsTabs({ leads }: { leads: Lead[] }) {
               <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500 dark:text-gray-400">Status</p></th>
               <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500 dark:text-gray-400">{activeTab === "whatsapp" ? "Detalhes" : "Extras"}</p></th>
               <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500 dark:text-gray-400">Data</p></th>
+              <th className="py-3 text-left"><p className="text-xs font-medium text-gray-500 dark:text-gray-400">Ações</p></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -63,6 +65,18 @@ export default function LeadsTabs({ leads }: { leads: Lead[] }) {
                 <td className="py-3"><StatusBadge status={lead.status} /></td>
                 <td className="py-3"><MetadataCell metadata={lead.metadata} notes={lead.notes} /></td>
                 <td className="py-3"><p className="text-sm text-gray-500 dark:text-gray-400">{new Date(lead.createdAt).toLocaleString("pt-BR")}</p></td>
+                <td className="py-3">
+                  <button onClick={async () => {
+                    const res = await fetch("/api/pipelines"); const pps = await res.json();
+                    if (pps.length > 0 && pps[0].stages?.length > 0) {
+                      await fetch("/api/deals", { method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ stageId: pps[0].stages[0].id, title: lead.name, contactName: lead.name, contactPhone: lead.phone, contactEmail: lead.email }) });
+                      toast("Enviado para o CRM!");
+                    }
+                  }} className="text-xs font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400 transition">
+                    Enviar p/ CRM
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
