@@ -424,16 +424,18 @@ function CampaignFormModal({ campaign, audiences, channels, onClose, onSave }: {
   const [audienceId, setAudienceId] = useState<string>(campaign?.audienceId?.toString() || "");
   const [channelId, setChannelId] = useState<string>(campaign?.channelId?.toString() || "");
   const [message, setMessage] = useState(campaign?.message || "");
+  const [subject, setSubject] = useState(campaign?.description || "");
   const inp = "w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10";
 
   async function handleSubmit() {
     if (!name.trim()) return;
-    const selectedChannel = channels.find((c) => c.id === parseInt(channelId));
+    const isEmail = channelId === "email";
+    const selectedChannel = isEmail ? null : channels.find((c) => c.id === parseInt(channelId));
     const payload = {
-      name, description, type,
+      name, description: isEmail ? subject : description, type,
       audienceId: audienceId ? parseInt(audienceId) : null,
-      channelId: channelId ? parseInt(channelId) : null,
-      channelType: selectedChannel?.type || null,
+      channelId: isEmail ? null : (channelId ? parseInt(channelId) : null),
+      channelType: isEmail ? "email" : (selectedChannel?.type || null),
       message,
     };
     if (campaign) {
@@ -476,13 +478,28 @@ function CampaignFormModal({ campaign, audiences, channels, onClose, onSave }: {
             <select value={channelId} onChange={(e) => setChannelId(e.target.value)} className={inp}>
               <option value="">Selecione...</option>
               {channels.filter((c) => c.type === 'whatsapp').map((c) => <option key={c.id} value={c.id}>{c.name} (WhatsApp)</option>)}
+              <option value="email">Email (SMTP)</option>
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Mensagem</label>
-            <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} className={inp + " resize-none"} placeholder="Olá {nome}! Temos uma novidade..." />
-            <p className="text-[11px] text-gray-400 mt-1">Use <code className="text-brand-500">{'{nome}'}</code> e <code className="text-brand-500">{'{telefone}'}</code> para personalizar</p>
-          </div>
+          {channelId === "email" ? (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Assunto do email</label>
+                <input value={subject} onChange={(e) => setSubject(e.target.value)} className={inp} placeholder="Novidades para você, {nome}!" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Corpo do email (HTML)</label>
+                <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={6} className={inp + " resize-none font-mono text-xs"} placeholder={'<h2>Olá {nome}!</h2>\n<p>Temos uma novidade especial para você.</p>'} />
+                <p className="text-[11px] text-gray-400 mt-1">Use <code className="text-brand-500">{'{nome}'}</code>, <code className="text-brand-500">{'{email}'}</code> e <code className="text-brand-500">{'{telefone}'}</code> para personalizar</p>
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Mensagem</label>
+              <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} className={inp + " resize-none"} placeholder="Olá {nome}! Temos uma novidade..." />
+              <p className="text-[11px] text-gray-400 mt-1">Use <code className="text-brand-500">{'{nome}'}</code> e <code className="text-brand-500">{'{telefone}'}</code> para personalizar</p>
+            </div>
+          )}
         </div>
         <div className="flex gap-2 mt-5">
           <button onClick={handleSubmit} className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition">{campaign ? "Salvar" : "Criar Campanha"}</button>

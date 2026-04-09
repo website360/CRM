@@ -53,12 +53,40 @@ export async function POST(request: NextRequest) {
       contacts = leads;
     }
 
-    // Get channel for sending
+    let sentCount = 0;
+
+    // Send via Email (SMTP)
+    if (campaign.channelType === 'email') {
+      const { sendEmail } = await import('@/lib/email');
+      const emailSubject = campaign.description || 'Sem assunto';
+
+      for (const contact of contacts) {
+        if (!contact.email || contact.email.endsWith('@click.track') || contact.email.endsWith('@whatsapp.contact')) continue;
+        try {
+          const html = (campaign.message || '')
+            .replace(/\{nome\}/gi, contact.name || '')
+            .replace(/\{email\}/gi, contact.email || '')
+            .replace(/\{telefone\}/gi, contact.phone || '');
+          const subj = emailSubject
+            .replace(/\{nome\}/gi, contact.name || '');
+
+          await sendEmail(contact.email, subj, html);
+          await prisma.campaignAction.create({ data: { campaignId: campaign.id, leadId: contact.id, action: 'sent' } });
+          sentCount++;
+        } catch (e) {
+          console.error(`[Campaign] Email failed to ${contact.email}:`, e);
+        }
+      }
+
+      await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'completed', sentCount: { increment: sentCount } } });
+      return NextResponse.json({ ok: true, sentCount });
+    }
+
+    // Send via WhatsApp channel
     if (campaign.channelId) {
       const channel = await prisma.channel.findUnique({ where: { id: campaign.channelId } });
       if (channel && campaign.message) {
         const config = channel.config as Record<string, string>;
-        let sentCount = 0;
 
         for (const contact of contacts) {
           if (!contact.phone) continue;
@@ -69,20 +97,14 @@ export async function POST(request: NextRequest) {
               .replace(/\{email\}/gi, contact.email || '');
 
             await sendWhatsAppMessage(config, contact.phone, personalMsg);
-            await prisma.campaignAction.create({
-              data: { campaignId: campaign.id, leadId: contact.id, action: 'sent' },
-            });
+            await prisma.campaignAction.create({ data: { campaignId: campaign.id, leadId: contact.id, action: 'sent' } });
             sentCount++;
           } catch (e) {
-            console.error(`[Campaign] Failed to send to ${contact.phone}:`, e);
+            console.error(`[Campaign] WhatsApp failed to ${contact.phone}:`, e);
           }
         }
 
-        await prisma.campaign.update({
-          where: { id: campaign.id },
-          data: { status: 'completed', sentCount: { increment: sentCount } },
-        });
-
+        await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'completed', sentCount: { increment: sentCount } } });
         return NextResponse.json({ ok: true, sentCount });
       }
     }
