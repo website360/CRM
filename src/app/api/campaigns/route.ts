@@ -25,13 +25,33 @@ export async function POST(request: NextRequest) {
     });
     if (!campaign || !campaign.audience) return NextResponse.json({ error: 'Campanha ou audiência não encontrada' }, { status: 404 });
 
-    // Get leads matching audience
+    // Get contacts matching audience (from CRM deals or leads)
     const filters = (campaign.audience.filters || {}) as Record<string, unknown>;
-    const where: Record<string, unknown> = {};
-    if (filters.sources && Array.isArray(filters.sources) && filters.sources.length > 0) where.source = { in: filters.sources };
-    if (filters.statuses && Array.isArray(filters.statuses) && filters.statuses.length > 0) where.status = { in: filters.statuses };
+    const stageIds = filters.stageIds as number[] | undefined;
+    const filterTags = filters.tags as string[] | undefined;
 
-    const leads = await prisma.lead.findMany({ where, select: { id: true, phone: true, name: true } });
+    type Contact = { id: number; name: string; phone: string | null; email: string | null };
+    let contacts: Contact[] = [];
+
+    if ((stageIds && stageIds.length > 0) || (filterTags && filterTags.length > 0)) {
+      // Filter from CRM deals
+      const dealWhere: Record<string, unknown> = {};
+      if (stageIds && stageIds.length > 0) dealWhere.stageId = { in: stageIds };
+      let deals = await prisma.deal.findMany({ where: dealWhere, select: { id: true, contactName: true, contactPhone: true, contactEmail: true, tags: true } });
+      if (filterTags && filterTags.length > 0) {
+        deals = deals.filter((d) => d.tags && filterTags.some((t) => d.tags!.toLowerCase().includes(t.toLowerCase())));
+      }
+      contacts = deals.map((d) => ({ id: d.id, name: d.contactName || '', phone: d.contactPhone, email: d.contactEmail }));
+    } else {
+      // Filter from leads
+      const leadWhere: Record<string, unknown> = {};
+      const sources = filters.sources as string[] | undefined;
+      const statuses = filters.statuses as string[] | undefined;
+      if (sources && sources.length > 0) leadWhere.source = { in: sources };
+      if (statuses && statuses.length > 0) leadWhere.status = { in: statuses };
+      const leads = await prisma.lead.findMany({ where: leadWhere, select: { id: true, name: true, phone: true, email: true } });
+      contacts = leads;
+    }
 
     // Get channel for sending
     if (campaign.channelId) {
@@ -40,20 +60,21 @@ export async function POST(request: NextRequest) {
         const config = channel.config as Record<string, string>;
         let sentCount = 0;
 
-        for (const lead of leads) {
-          if (!lead.phone) continue;
+        for (const contact of contacts) {
+          if (!contact.phone) continue;
           try {
             const personalMsg = campaign.message
-              .replace(/\{nome\}/gi, lead.name || '')
-              .replace(/\{telefone\}/gi, lead.phone || '');
+              .replace(/\{nome\}/gi, contact.name || '')
+              .replace(/\{telefone\}/gi, contact.phone || '')
+              .replace(/\{email\}/gi, contact.email || '');
 
-            await sendWhatsAppMessage(config, lead.phone, personalMsg);
+            await sendWhatsAppMessage(config, contact.phone, personalMsg);
             await prisma.campaignAction.create({
-              data: { campaignId: campaign.id, leadId: lead.id, action: 'sent' },
+              data: { campaignId: campaign.id, leadId: contact.id, action: 'sent' },
             });
             sentCount++;
           } catch (e) {
-            console.error(`[Campaign] Failed to send to ${lead.phone}:`, e);
+            console.error(`[Campaign] Failed to send to ${contact.phone}:`, e);
           }
         }
 

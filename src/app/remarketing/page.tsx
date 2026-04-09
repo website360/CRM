@@ -242,7 +242,11 @@ function AudienceFormModal({ audience, onClose, onSave }: { audience?: Audience;
   const [description, setDescription] = useState(audience?.description || "");
   const [selectedSources, setSelectedSources] = useState<string[]>(audience?.filters?.sources || []);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(audience?.filters?.statuses || []);
-  const [stats, setStats] = useState<{ total: number; sources: { value: string; count: number }[]; statuses: { value: string; count: number; label: string }[] }>({ total: 0, sources: [], statuses: [] });
+  const af = (audience?.filters || {}) as Record<string, unknown>;
+  const [selectedStages, setSelectedStages] = useState<number[]>((af.stageIds as number[] | undefined) || []);
+  const [selectedTags, setSelectedTags] = useState<string[]>((af.tags as string[] | undefined) || []);
+  const [filterMode, setFilterMode] = useState<"crm" | "leads">((af.stageIds as unknown[] | undefined)?.length ? "crm" : "leads");
+  const [stats, setStats] = useState<{ total: number; totalDeals: number; sources: { value: string; count: number }[]; statuses: { value: string; count: number; label: string }[]; stages: { id: number; name: string; color: string; pipelineName: string; count: number }[]; tags: { value: string; count: number }[] }>({ total: 0, totalDeals: 0, sources: [], statuses: [], stages: [], tags: [] });
   const [previewCount, setPreviewCount] = useState<number | null>(null);
   const inp = "w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10";
 
@@ -250,29 +254,30 @@ function AudienceFormModal({ audience, onClose, onSave }: { audience?: Audience;
 
   // Live preview count
   useEffect(() => {
-    if (selectedSources.length === 0 && selectedStatuses.length === 0) {
-      setPreviewCount(stats.total);
-      return;
+    if (filterMode === "crm") {
+      if (selectedStages.length === 0 && selectedTags.length === 0) { setPreviewCount(stats.totalDeals); return; }
+      let count = 0;
+      if (selectedStages.length > 0) count = selectedStages.reduce((s, id) => s + (stats.stages.find((x) => x.id === id)?.count || 0), 0);
+      else count = stats.totalDeals;
+      setPreviewCount(count);
+    } else {
+      if (selectedSources.length === 0 && selectedStatuses.length === 0) { setPreviewCount(stats.total); return; }
+      let count = stats.total;
+      if (selectedSources.length > 0) count = selectedSources.reduce((s, v) => s + (stats.sources.find((x) => x.value === v)?.count || 0), 0);
+      setPreviewCount(count);
     }
-    // Simple client-side estimation
-    let count = stats.total;
-    if (selectedSources.length > 0) {
-      count = selectedSources.reduce((sum, s) => sum + (stats.sources.find((x) => x.value === s)?.count || 0), 0);
-    }
-    setPreviewCount(count);
-  }, [selectedSources, selectedStatuses, stats]);
+  }, [selectedSources, selectedStatuses, selectedStages, selectedTags, stats, filterMode]);
 
-  function toggleSource(source: string) {
-    setSelectedSources((prev) => prev.includes(source) ? prev.filter((s) => s !== source) : [...prev, source]);
-  }
-
-  function toggleStatus(status: string) {
-    setSelectedStatuses((prev) => prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]);
-  }
+  function toggleSource(source: string) { setSelectedSources((p) => p.includes(source) ? p.filter((s) => s !== source) : [...p, source]); }
+  function toggleStatus(status: string) { setSelectedStatuses((p) => p.includes(status) ? p.filter((s) => s !== status) : [...p, status]); }
+  function toggleStage(id: number) { setSelectedStages((p) => p.includes(id) ? p.filter((s) => s !== id) : [...p, id]); }
+  function toggleTag(tag: string) { setSelectedTags((p) => p.includes(tag) ? p.filter((s) => s !== tag) : [...p, tag]); }
 
   async function handleSubmit() {
     if (!name.trim()) return;
-    const filters = { sources: selectedSources, statuses: selectedStatuses };
+    const filters = filterMode === "crm"
+      ? { stageIds: selectedStages, tags: selectedTags }
+      : { sources: selectedSources, statuses: selectedStatuses };
     const method = audience ? "PUT" : "POST";
     const url = audience ? `/api/audiences/${audience.id}` : "/api/audiences";
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, description, filters }) });
@@ -296,7 +301,66 @@ function AudienceFormModal({ audience, onClose, onSave }: { audience?: Audience;
           <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nome *</label><input value={name} onChange={(e) => setName(e.target.value)} className={inp} placeholder="Ex: Leads quentes do site" /></div>
           <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Descrição</label><input value={description} onChange={(e) => setDescription(e.target.value)} className={inp} placeholder="Descrição opcional" /></div>
 
-          {/* Sources */}
+          {/* Mode toggle */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Filtrar a partir de</label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setFilterMode("crm")}
+                className={`flex-1 px-3 py-2.5 rounded-lg text-xs font-medium border transition ${filterMode === "crm" ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10 text-brand-500" : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400"}`}>
+                CRM (Pipeline)
+                <span className="block text-[10px] opacity-60 mt-0.5">{stats.totalDeals} deals</span>
+              </button>
+              <button type="button" onClick={() => setFilterMode("leads")}
+                className={`flex-1 px-3 py-2.5 rounded-lg text-xs font-medium border transition ${filterMode === "leads" ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10 text-brand-500" : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400"}`}>
+                Leads
+                <span className="block text-[10px] opacity-60 mt-0.5">{stats.total} leads</span>
+              </button>
+            </div>
+          </div>
+
+          {/* CRM Stage filters */}
+          {filterMode === "crm" && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Etapas do Pipeline</label>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-2">Selecione as etapas para incluir na audiência</p>
+                <div className="flex flex-wrap gap-2">
+                  {stats.stages.map((s) => (
+                    <button key={s.id} type="button" onClick={() => toggleStage(s.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition flex items-center gap-1.5 ${
+                        selectedStages.includes(s.id)
+                          ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10 text-brand-500"
+                          : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"
+                      }`}>
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                      {s.name} <span className="opacity-60">({s.count})</span>
+                    </button>
+                  ))}
+                  {stats.stages.length === 0 && <p className="text-xs text-gray-400">Nenhuma etapa no CRM</p>}
+                </div>
+              </div>
+              {stats.tags.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Tags dos Deals</label>
+                  <div className="flex flex-wrap gap-2">
+                    {stats.tags.map((t) => (
+                      <button key={t.value} type="button" onClick={() => toggleTag(t.value)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                          selectedTags.includes(t.value)
+                            ? "border-purple-500 bg-purple-50 dark:bg-purple-500/10 text-purple-500"
+                            : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"
+                        }`}>
+                        {t.value} <span className="opacity-60">({t.count})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Lead Source filters */}
+          {filterMode === "leads" && (<>
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Filtrar por Fonte</label>
             <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-2">De onde o lead veio (nenhum selecionado = todos)</p>
@@ -341,6 +405,7 @@ function AudienceFormModal({ audience, onClose, onSave }: { audience?: Audience;
               })}
             </div>
           </div>
+          </>)}
         </div>
         <div className="flex gap-2 mt-5">
           <button onClick={handleSubmit} className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition">{audience ? "Salvar" : "Criar Audiência"}</button>
