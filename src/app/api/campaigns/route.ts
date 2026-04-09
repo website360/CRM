@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
         await prisma.campaign.update({
           where: { id: campaign.id },
-          data: { status: 'completed', sentCount },
+          data: { status: 'completed', sentCount: { increment: sentCount } },
         });
 
         return NextResponse.json({ ok: true, sentCount });

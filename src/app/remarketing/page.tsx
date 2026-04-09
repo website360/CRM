@@ -113,12 +113,10 @@ export default function RemarketingPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {c.status === "draft" && (
-                    <button onClick={() => handleSendCampaign(c.id)}
-                      className="px-3 py-1.5 text-xs font-medium rounded-lg bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500 hover:bg-success-100 dark:hover:bg-success-500/25 transition">
-                      Enviar
-                    </button>
-                  )}
+                  <button onClick={() => handleSendCampaign(c.id)}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500 hover:bg-success-100 dark:hover:bg-success-500/25 transition">
+                    {c.status === "completed" ? "Reenviar" : "Enviar"}
+                  </button>
                   <button onClick={() => setConfirmDelete({ type: "campaign", id: c.id, name: c.name })}
                     className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition">
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
