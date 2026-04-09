@@ -67,6 +67,25 @@ model Campaign {
   actions     CampaignAction[]
 }
 
+// ============================================================
+// Automations (Flow Builder)
+// ============================================================
+
+model Automation {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  status      String   @default("draft") // draft, active, paused
+  trigger     String   // new_lead, new_message, deal_stage_changed, manual, schedule
+  triggerConfig Json?
+  nodes       Json     // React Flow nodes array
+  edges       Json     // React Flow edges array
+  execCount   Int      @default(0)
+  lastRunAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model CampaignAction {
   id         Int      @id @default(autoincrement())
   campaignId Int

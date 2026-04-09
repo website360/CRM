@@ -49,6 +49,19 @@ const groups: SettingsGroup[] = [
       { key: "INSTAGRAM_VERIFY_TOKEN", label: "Instagram Verify Token", placeholder: "crm-lp-instagram-verify", help: "Token usado na verificação do webhook do Instagram" },
     ],
   },
+  {
+    title: "Email / SMTP",
+    description: "Configuração para envio de emails (automações e remarketing)",
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />,
+    color: "bg-error-50 dark:bg-error-500/10 text-error-500",
+    fields: [
+      { key: "SMTP_HOST", label: "Servidor SMTP", placeholder: "smtp.gmail.com", help: "Host do servidor de email" },
+      { key: "SMTP_PORT", label: "Porta", placeholder: "587", help: "587 (TLS) ou 465 (SSL)" },
+      { key: "SMTP_USER", label: "Usuário", placeholder: "email@dominio.com" },
+      { key: "SMTP_PASS", label: "Senha", placeholder: "senha ou app password", type: "password" },
+      { key: "SMTP_FROM", label: "Remetente (From)", placeholder: "Empresa <noreply@dominio.com>", help: "Nome e email que aparece como remetente" },
+    ],
+  },
 ];
 
 export default function ConfiguracoesPage() {
