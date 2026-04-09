@@ -10,8 +10,8 @@ import { toast } from "@/components/Toast";
 type Deal = {
   id: number; stageId: number; title: string; value: number | null;
   contactName: string | null; contactPhone: string | null; contactEmail: string | null;
-  notes: string | null; tags: string | null; position: number;
-  createdAt: string; updatedAt: string;
+  notes: string | null; tags: string | null; metadata: Record<string, string> | null;
+  position: number; createdAt: string; updatedAt: string;
 };
 
 type Stage = { id: number; name: string; color: string; position: number; deals: Deal[]; _count: { deals: number } };
@@ -266,6 +266,13 @@ function DealCard({ deal, stageColor, onClick, onDelete }: { deal: Deal; stageCo
           <span className="text-[11px] text-gray-400">{deal.contactPhone}</span>
         </div>
       )}
+      {deal.notes && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2 line-clamp-2">{deal.notes}</p>}
+      {deal.metadata && Object.keys(deal.metadata).length > 0 && (
+        <div className="mt-2 flex items-center gap-1">
+          <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+          <span className="text-[11px] text-gray-400">{Object.keys(deal.metadata).length} campos extras</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -299,6 +306,21 @@ function DealFormModal({ deal, stageId, onSave, onClose, onDelete }: { deal?: De
           <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email</label><input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className={inp} placeholder="email@..." /></div>
           <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tags (separadas por vírgula)</label><input value={tags} onChange={(e) => setTags(e.target.value)} className={inp} placeholder="quente, urgente" /></div>
           <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Observações</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={inp + " resize-none"} /></div>
+
+          {/* Metadata (read-only from lead) */}
+          {deal?.metadata && Object.keys(deal.metadata).length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Dados do formulário</label>
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 space-y-1.5">
+                {Object.entries(deal.metadata).map(([key, val]) => (
+                  <div key={key} className="flex items-start justify-between gap-3">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">{key}</span>
+                    <span className="text-xs text-gray-700 dark:text-gray-300 text-right break-words">{String(val)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 mt-5">
           <button onClick={() => { if (!title.trim()) return; onSave({ title, value: value ? parseFloat(value) : null, contactName, contactPhone, contactEmail, notes, tags }); }}

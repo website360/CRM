@@ -22,7 +22,16 @@ export default function LeadsTabs({ leads }: { leads: Lead[] }) {
     if (pps.length > 0 && pps[0].stages?.length > 0) {
       await fetch("/api/deals", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stageId: pps[0].stages[0].id, title: lead.name, contactName: lead.name, contactPhone: lead.phone, contactEmail: lead.email }),
+        body: JSON.stringify({
+          stageId: pps[0].stages[0].id,
+          title: lead.name,
+          contactName: lead.name,
+          contactPhone: lead.phone,
+          contactEmail: lead.email.endsWith("@click.track") || lead.email.endsWith("@whatsapp.contact") ? null : lead.email,
+          notes: lead.notes,
+          metadata: lead.metadata,
+          leadId: lead.id,
+        }),
       });
       toast("Enviado para o CRM!");
     }

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { stageId, title, value, contactName, contactPhone, contactEmail, notes, tags, leadId } = body;
+  const { stageId, title, value, contactName, contactPhone, contactEmail, notes, tags, leadId, metadata } = body;
 
   if (!stageId || !title) {
     return NextResponse.json({ error: 'stageId e title obrigatórios' }, { status: 400 });
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
       contactEmail: contactEmail || null,
       notes: notes || null,
       tags: tags || null,
+      metadata: metadata || undefined,
       leadId: leadId || null,
       position: (maxPos._max.position || 0) + 1,
     },
