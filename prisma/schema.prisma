@@ -31,12 +31,50 @@ model User {
   role     String @default("admin")
 }
 
+// ============================================================
+// Remarketing
+// ============================================================
+
+model Audience {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  filters     Json?    // { source: [], status: [], tags: [], dateRange: {} }
+  matchCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  campaigns   Campaign[]
+}
+
 model Campaign {
   id          Int      @id @default(autoincrement())
   name        String
   description String?
+  type        String   @default("manual") // manual, automated, drip
+  status      String   @default("draft")  // draft, active, paused, completed
+  audienceId  Int?
+  channelType String?  // whatsapp, email, webchat
+  channelId   Int?
+  message     String?  @db.Text
+  scheduledAt DateTime?
+  sentCount   Int      @default(0)
+  openCount   Int      @default(0)
+  clickCount  Int      @default(0)
+  replyCount  Int      @default(0)
   createdAt   DateTime @default(now())
-  status      String   @default("active")
+  updatedAt   DateTime @updatedAt
+  audience    Audience? @relation(fields: [audienceId], references: [id])
+  actions     CampaignAction[]
+}
+
+model CampaignAction {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  leadId     Int?
+  action     String   // sent, opened, clicked, replied, converted
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 }
 
 // ============================================================
