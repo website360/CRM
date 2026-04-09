@@ -86,8 +86,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
               webhook: {
                 url: webhookUrl,
                 webhookByEvents: true,
-                webhookBase64: false,
-                events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+                webhookBase64: true,
+                events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
               },
             }),
           });

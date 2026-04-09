@@ -20,6 +20,7 @@ model Lead {
   metadata  Json?
 
   conversations Conversation[]
+  deals         Deal[]
 }
 
 model User {
@@ -36,6 +37,45 @@ model Campaign {
   description String?
   createdAt   DateTime @default(now())
   status      String   @default("active")
+}
+
+// ============================================================
+// CRM Pipeline & Deals (Kanban)
+// ============================================================
+
+model Pipeline {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+  stages    Stage[]
+}
+
+model Stage {
+  id         Int      @id @default(autoincrement())
+  pipelineId Int
+  name       String
+  color      String   @default("#465FFF")
+  position   Int      @default(0)
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals      Deal[]
+}
+
+model Deal {
+  id          Int      @id @default(autoincrement())
+  stageId     Int
+  title       String
+  value       Float?
+  leadId      Int?
+  contactName String?
+  contactPhone String?
+  contactEmail String?
+  notes       String?  @db.Text
+  tags        String?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  stage       Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  lead        Lead?    @relation(fields: [leadId], references: [id])
 }
 
 model SystemSetting {

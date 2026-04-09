@@ -83,10 +83,14 @@ export async function POST(request: NextRequest) {
     // Handle images
     if (msg.imageMessage) {
       mediaType = 'image';
-      if (data.message?.base64) {
-        mediaUrl = `data:${msg.imageMessage.mimetype || 'image/jpeg'};base64,${data.message.base64}`;
+      const mime = msg.imageMessage.mimetype || 'image/jpeg';
+      // Try all possible base64 locations in Evolution webhook
+      const b64 = data.message?.base64 || data.base64 || body.data?.message?.base64 || msg.imageMessage.base64 || null;
+      console.log(`[Evolution] Image: mime=${mime} hasBase64=${!!b64} hasUrl=${!!msg.imageMessage.url} keys=${Object.keys(data).join(',')}`);
+      if (b64) {
+        mediaUrl = `data:${mime};base64,${b64}`;
       } else if (data.base64) {
-        mediaUrl = `data:${msg.imageMessage.mimetype || 'image/jpeg'};base64,${data.base64}`;
+        mediaUrl = `data:${mime};base64,${data.base64}`;
       } else if (msg.imageMessage.url) {
         mediaUrl = msg.imageMessage.url;
       } else if (data.key?.id && evoUrl) {

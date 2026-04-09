@@ -258,6 +258,26 @@ export default function InboxPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button onClick={async () => {
+                  const res = await fetch("/api/pipelines");
+                  const pipelines = await res.json();
+                  if (pipelines.length > 0 && pipelines[0].stages?.length > 0) {
+                    const firstStageId = pipelines[0].stages[0].id;
+                    await fetch("/api/deals", {
+                      method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        stageId: firstStageId,
+                        title: activeChat.contactName || "Novo Negócio",
+                        contactName: activeChat.contactName,
+                        contactPhone: activeChat.channel.type === "whatsapp" && !activeChat.contactId.includes('@') ? activeChat.contactId : null,
+                      }),
+                    });
+                    alert("Contato enviado para o CRM!");
+                  }
+                }}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-500/25 transition">
+                  Enviar p/ CRM
+                </button>
                 <button onClick={() => handleTakeover(activeChat.mode === "ai" ? "human" : "ai")}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${activeChat.mode === "ai" ? "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/25" : "bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/25"}`}>
                   {activeChat.mode === "ai" ? "Assumir Conversa" : "Devolver p/ IA"}
