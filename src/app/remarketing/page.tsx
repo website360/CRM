@@ -240,16 +240,39 @@ function CampaignStatusBadge({ status }: { status: string }) {
 function AudienceFormModal({ audience, onClose, onSave }: { audience?: Audience; onClose: () => void; onSave: () => void }) {
   const [name, setName] = useState(audience?.name || "");
   const [description, setDescription] = useState(audience?.description || "");
-  const [sources, setSources] = useState<string>(audience?.filters?.sources?.join(", ") || "");
-  const [statuses, setStatuses] = useState<string>(audience?.filters?.statuses?.join(", ") || "");
+  const [selectedSources, setSelectedSources] = useState<string[]>(audience?.filters?.sources || []);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(audience?.filters?.statuses || []);
+  const [stats, setStats] = useState<{ total: number; sources: { value: string; count: number }[]; statuses: { value: string; count: number; label: string }[] }>({ total: 0, sources: [], statuses: [] });
+  const [previewCount, setPreviewCount] = useState<number | null>(null);
   const inp = "w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10";
+
+  useEffect(() => { fetch("/api/leads/stats").then((r) => r.json()).then(setStats).catch(() => {}); }, []);
+
+  // Live preview count
+  useEffect(() => {
+    if (selectedSources.length === 0 && selectedStatuses.length === 0) {
+      setPreviewCount(stats.total);
+      return;
+    }
+    // Simple client-side estimation
+    let count = stats.total;
+    if (selectedSources.length > 0) {
+      count = selectedSources.reduce((sum, s) => sum + (stats.sources.find((x) => x.value === s)?.count || 0), 0);
+    }
+    setPreviewCount(count);
+  }, [selectedSources, selectedStatuses, stats]);
+
+  function toggleSource(source: string) {
+    setSelectedSources((prev) => prev.includes(source) ? prev.filter((s) => s !== source) : [...prev, source]);
+  }
+
+  function toggleStatus(status: string) {
+    setSelectedStatuses((prev) => prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]);
+  }
 
   async function handleSubmit() {
     if (!name.trim()) return;
-    const filters = {
-      sources: sources.split(",").map((s) => s.trim()).filter(Boolean),
-      statuses: statuses.split(",").map((s) => s.trim()).filter(Boolean),
-    };
+    const filters = { sources: selectedSources, statuses: selectedStatuses };
     const method = audience ? "PUT" : "POST";
     const url = audience ? `/api/audiences/${audience.id}` : "/api/audiences";
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, description, filters }) });
@@ -260,16 +283,67 @@ function AudienceFormModal({ audience, onClose, onSave }: { audience?: Audience;
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl max-w-md w-full p-6">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">{audience ? "Editar Audiência" : "Nova Audiência"}</h3>
-        <div className="space-y-3">
-          <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nome *</label><input value={name} onChange={(e) => setName(e.target.value)} className={inp} placeholder="Ex: Leads quentes" /></div>
-          <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Descrição</label><input value={description} onChange={(e) => setDescription(e.target.value)} className={inp} placeholder="Descrição da audiência" /></div>
-          <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Fontes (separadas por vírgula)</label><input value={sources} onChange={(e) => setSources(e.target.value)} className={inp} placeholder="wordpress, demo-landing-page, whatsapp-click" /><p className="text-[11px] text-gray-400 mt-0.5">Filtra leads pela fonte/source de captura</p></div>
-          <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status (separados por vírgula)</label><input value={statuses} onChange={(e) => setStatuses(e.target.value)} className={inp} placeholder="new, contacted, qualified" /><p className="text-[11px] text-gray-400 mt-0.5">Filtra por status do lead</p></div>
+      <div className="relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">{audience ? "Editar Audiência" : "Nova Audiência"}</h3>
+          {previewCount !== null && (
+            <span className="text-sm font-bold text-brand-500 bg-brand-50 dark:bg-brand-500/10 px-3 py-1 rounded-full">
+              {previewCount} contatos
+            </span>
+          )}
+        </div>
+        <div className="space-y-4">
+          <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nome *</label><input value={name} onChange={(e) => setName(e.target.value)} className={inp} placeholder="Ex: Leads quentes do site" /></div>
+          <div><label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Descrição</label><input value={description} onChange={(e) => setDescription(e.target.value)} className={inp} placeholder="Descrição opcional" /></div>
+
+          {/* Sources */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Filtrar por Fonte</label>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-2">De onde o lead veio (nenhum selecionado = todos)</p>
+            <div className="flex flex-wrap gap-2">
+              {stats.sources.map((s) => (
+                <button key={s.value} type="button" onClick={() => toggleSource(s.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                    selectedSources.includes(s.value)
+                      ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10 text-brand-500"
+                      : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600"
+                  }`}>
+                  {s.value} <span className="opacity-60">({s.count})</span>
+                </button>
+              ))}
+              {stats.sources.length === 0 && <p className="text-xs text-gray-400">Nenhum lead cadastrado ainda</p>}
+            </div>
+          </div>
+
+          {/* Statuses */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Filtrar por Status</label>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-2">Em que etapa o lead está (nenhum = todos)</p>
+            <div className="flex flex-wrap gap-2">
+              {stats.statuses.map((s) => {
+                const statusColors: Record<string, string> = {
+                  new: "border-brand-500 bg-brand-50 dark:bg-brand-500/10 text-brand-500",
+                  whatsapp: "border-success-500 bg-success-50 dark:bg-success-500/10 text-success-600",
+                  contacted: "border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-600",
+                  qualified: "border-warning-500 bg-warning-50 dark:bg-warning-500/10 text-warning-600",
+                  converted: "border-success-500 bg-success-50 dark:bg-success-500/10 text-success-600",
+                };
+                return (
+                  <button key={s.value} type="button" onClick={() => toggleStatus(s.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                      selectedStatuses.includes(s.value)
+                        ? (statusColors[s.value] || "border-brand-500 bg-brand-50 text-brand-500")
+                        : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"
+                    }`}>
+                    {s.label} <span className="opacity-60">({s.count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
         <div className="flex gap-2 mt-5">
-          <button onClick={handleSubmit} className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition">{audience ? "Salvar" : "Criar"}</button>
+          <button onClick={handleSubmit} className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition">{audience ? "Salvar" : "Criar Audiência"}</button>
           <button onClick={onClose} className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition">Cancelar</button>
         </div>
       </div>
