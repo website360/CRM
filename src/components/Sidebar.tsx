@@ -25,10 +25,36 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar, sidebarOpen, setSidebarOpen } = useTheme();
   const [user, setUser] = useState<UserInfo | null>(null);
+  const [trialEnd, setTrialEnd] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState("");
 
   useEffect(() => {
-    fetch("/api/auth/me").then((r) => r.ok ? r.json() : null).then((d) => { if (d?.user) setUser(d.user); }).catch(() => {});
+    fetch("/api/auth/me").then((r) => r.ok ? r.json() : null).then((d) => {
+      if (d?.user) setUser(d.user);
+      if (d?.org?.trialEndsAt) setTrialEnd(d.org.trialEndsAt);
+    }).catch(() => {});
   }, []);
+
+  // Countdown timer
+  useEffect(() => {
+    if (!trialEnd) return;
+    const update = () => {
+      const diff = new Date(trialEnd).getTime() - Date.now();
+      if (diff <= 0) { setCountdown("Expirado"); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      if (h >= 24) {
+        const d = Math.floor(h / 24);
+        setCountdown(`${d}d ${h % 24}h ${m}m`);
+      } else {
+        setCountdown(`${h}h ${m}m ${s}s`);
+      }
+    };
+    update();
+    const i = setInterval(update, 1000);
+    return () => clearInterval(i);
+  }, [trialEnd]);
 
   return (
     <>
@@ -99,6 +125,31 @@ export default function Sidebar() {
             })}
           </ul>
         </div>
+
+        {/* Trial countdown */}
+        {!sidebarCollapsed && trialEnd && countdown && countdown !== "Expirado" && (
+          <div className="mx-4 mb-3">
+            <Link href="/planos" className="block rounded-xl bg-gradient-to-r from-brand-500 to-indigo-500 p-3.5 text-white hover:opacity-90 transition">
+              <div className="flex items-center gap-2 mb-1.5">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span className="text-xs font-semibold">Período de teste</span>
+              </div>
+              <p className="text-lg font-bold tracking-wide">{countdown}</p>
+              <p className="text-[10px] text-white/70 mt-1">Escolha um plano para continuar</p>
+            </Link>
+          </div>
+        )}
+        {!sidebarCollapsed && countdown === "Expirado" && (
+          <div className="mx-4 mb-3">
+            <Link href="/planos" className="block rounded-xl bg-error-500 p-3.5 text-white hover:opacity-90 transition">
+              <div className="flex items-center gap-2 mb-1">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                <span className="text-xs font-bold">Teste expirado!</span>
+              </div>
+              <p className="text-[11px] text-white/80">Assine para continuar usando</p>
+            </Link>
+          </div>
+        )}
 
         {/* Footer */}
         {!sidebarCollapsed && (

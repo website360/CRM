@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       name: companyName || `Empresa de ${name}`,
       slug: uniqueSlug,
       planId: freePlan.id,
-      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days trial
+      trialEndsAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h trial
     },
   });
 
