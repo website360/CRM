@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Routes that don't require authentication
-const publicRoutes = ['/login', '/registro', '/onboarding', '/demo', '/api/auth', '/api/widget', '/api/webhook', '/api/leads', '/api/whatsapp-click', '/api/org/plans', '/api/stripe/webhook'];
+const publicRoutes = ['/login', '/registro', '/onboarding', '/demo', '/api/auth', '/api/widget', '/api/webhook', '/api/leads', '/api/whatsapp-click', '/api/org/plans', '/api/stripe/webhook', '/api/admin'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
