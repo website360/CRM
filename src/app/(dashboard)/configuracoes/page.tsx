@@ -50,6 +50,17 @@ const groups: SettingsGroup[] = [
     ],
   },
   {
+    title: "Stripe (Pagamentos)",
+    description: "Chaves da API do Stripe para cobranças e assinaturas",
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />,
+    color: "bg-purple-50 dark:bg-purple-500/10 text-purple-500",
+    fields: [
+      { key: "STRIPE_SECRET_KEY", label: "Secret Key", placeholder: "sk_live_...", type: "password", help: "Chave secreta do Stripe (Dashboard > Developers > API Keys)" },
+      { key: "STRIPE_PUBLISHABLE_KEY", label: "Publishable Key", placeholder: "pk_live_...", help: "Chave pública do Stripe" },
+      { key: "STRIPE_WEBHOOK_SECRET", label: "Webhook Secret", placeholder: "whsec_...", type: "password", help: "Secret do webhook (Dashboard > Webhooks > Signing secret)" },
+    ],
+  },
+  {
     title: "Email",
     description: "Envio de emails via API (recomendado) ou SMTP",
     icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />,

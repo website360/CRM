@@ -20,6 +20,8 @@ model Organization {
   website     String?
   address     String?
   planId      Int?
+  stripeCustomerId   String?
+  stripeSubscriptionId String?
   trialEndsAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -41,9 +43,12 @@ model Plan {
   maxUsers    Int      @default(1)
   maxChannels Int      @default(1)
   maxLeads    Int      @default(500)
-  features    Json?    // { whatsapp: true, email: true, automation: true, crm: true }
+  features    Json?
   price       Float    @default(0)
-  interval    String   @default("monthly") // monthly, yearly
+  priceYearly Float?
+  stripePriceId       String?
+  stripePriceYearlyId String?
+  interval    String   @default("monthly")
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   organizations Organization[]
