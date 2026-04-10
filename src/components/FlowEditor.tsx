@@ -109,6 +109,8 @@ export default function FlowEditor({ automation, onSave, onClose }: { automation
 
   function updateNodeData(nodeId: string, data: Record<string, string>) {
     setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n));
+    // Keep selectedNode in sync
+    setSelectedNode((prev) => prev && prev.id === nodeId ? { ...prev, data: { ...prev.data, ...data } } : prev);
   }
 
   function deleteNode(nodeId: string) {
