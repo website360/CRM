@@ -16,9 +16,11 @@ export default function PerfilPage() {
   const [orgAddress, setOrgAddress] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [orgLogo, setOrgLogo] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const logoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -29,7 +31,7 @@ export default function PerfilPage() {
     fetch("/api/org")
       .then((r) => r.ok ? r.json() : null)
       .then((d) => {
-        if (d?.id) { setOrg(d); setOrgName(d.name || ""); setOrgPhone(d.phone || ""); setOrgWebsite(d.website || ""); setOrgAddress(d.address || ""); }
+        if (d?.id) { setOrg(d); setOrgName(d.name || ""); setOrgPhone(d.phone || ""); setOrgWebsite(d.website || ""); setOrgAddress(d.address || ""); setOrgLogo(d.logo || ""); }
       }).catch(() => {});
   }, []);
 
@@ -54,6 +56,21 @@ export default function PerfilPage() {
     setUser((u) => u ? { ...u, name } : u);
     toast("Perfil salvo!");
     setSaving(false);
+  }
+
+  async function handleUploadLogo(file: File) {
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+    const { url } = await uploadRes.json();
+    if (url) {
+      const fullUrl = url.startsWith('/') ? `${window.location.origin}${url}` : url;
+      await fetch("/api/org", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ logo: fullUrl }) });
+      setOrgLogo(fullUrl);
+      toast("Logo atualizado!");
+    }
+    setUploading(false);
   }
 
   async function handleSaveOrg() {
@@ -123,7 +140,27 @@ export default function PerfilPage() {
           </div>
         </div>
         <div className="px-6 py-5 space-y-4">
-          <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nome da empresa</label><input value={orgName} onChange={(e) => setOrgName(e.target.value)} className={inp} /></div>
+          <div className="flex items-center gap-4">
+            <div className="relative group">
+              {orgLogo ? (
+                <img src={orgLogo} alt="" className="h-16 w-16 rounded-xl object-cover border-2 border-gray-100 dark:border-gray-800" />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-brand-500">
+                  <span className="text-white text-xl font-bold">{(orgName || "C")[0].toUpperCase()}</span>
+                </div>
+              )}
+              <button onClick={() => logoRef.current?.click()}
+                className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              </button>
+              <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadLogo(f); }} />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nome da empresa</label>
+              <input value={orgName} onChange={(e) => setOrgName(e.target.value)} className={inp} />
+              <p className="text-[11px] text-gray-400 mt-1">O logo e nome aparecem no menu lateral</p>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Telefone</label><input value={orgPhone} onChange={(e) => setOrgPhone(e.target.value)} className={inp} /></div>
             <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Website</label><input value={orgWebsite} onChange={(e) => setOrgWebsite(e.target.value)} className={inp} /></div>

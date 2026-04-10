@@ -21,7 +21,7 @@ export default async function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
         {stats.map((s) => (
           <div key={s.title} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-5 md:p-6">
             <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${s.bg}`}>

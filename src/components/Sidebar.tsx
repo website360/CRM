@@ -25,13 +25,19 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar, sidebarOpen, setSidebarOpen } = useTheme();
   const [user, setUser] = useState<UserInfo | null>(null);
+  const [orgName, setOrgName] = useState("");
+  const [orgLogo, setOrgLogo] = useState<string | null>(null);
   const [trialEnd, setTrialEnd] = useState<string | null>(null);
   const [countdown, setCountdown] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.ok ? r.json() : null).then((d) => {
       if (d?.user) setUser(d.user);
-      if (d?.org?.trialEndsAt) setTrialEnd(d.org.trialEndsAt);
+      if (d?.org) {
+        setOrgName(d.org.name || "");
+        setOrgLogo(d.org.logo || null);
+        if (d.org.trialEndsAt) setTrialEnd(d.org.trialEndsAt);
+      }
     }).catch(() => {});
   }, []);
 
@@ -73,17 +79,25 @@ export default function Sidebar() {
         {/* Header */}
         <div className={`flex items-center gap-3 pt-6 pb-6 px-5 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           {!sidebarCollapsed && (
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500">
-                <span className="text-white font-bold text-sm">C</span>
-              </div>
-              <span className="text-lg font-bold text-gray-900 dark:text-white">CRM LP</span>
-            </div>
+            <Link href="/perfil" className="flex items-center gap-2.5 hover:opacity-80 transition min-w-0">
+              {orgLogo ? (
+                <img src={orgLogo} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0" />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 shrink-0">
+                  <span className="text-white font-bold text-sm">{(orgName || "C")[0].toUpperCase()}</span>
+                </div>
+              )}
+              <span className="text-lg font-bold text-gray-900 dark:text-white truncate">{orgName || "CRM LP"}</span>
+            </Link>
           )}
           {sidebarCollapsed && (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500">
-              <span className="text-white font-bold text-sm">C</span>
-            </div>
+            orgLogo ? (
+              <img src={orgLogo} alt="" className="h-8 w-8 rounded-lg object-cover" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500">
+                <span className="text-white font-bold text-sm">{(orgName || "C")[0].toUpperCase()}</span>
+              </div>
+            )
           )}
           <button onClick={toggleSidebar} className={`hidden lg:flex h-7 w-7 items-center justify-center rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition ${sidebarCollapsed ? 'absolute -right-3.5 top-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-theme-xs rounded-full' : ''}`}>
             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
