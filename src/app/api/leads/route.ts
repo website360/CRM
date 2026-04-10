@@ -18,11 +18,17 @@ function corsResponse(body: unknown, init: ResponseInit = {}) {
 }
 
 function isAuthorized(request: NextRequest): boolean {
+  // Allow if logged in (has auth cookie)
+  const authToken = request.cookies.get('auth_token')?.value;
+  if (authToken) return true;
+
+  // Allow if API key matches
   const apiKey = process.env.API_KEY;
-  if (!apiKey) return true; // no key configured = open (dev mode)
+  if (!apiKey) return true;
 
   const provided = request.headers.get('X-API-Key');
-  return provided === apiKey;
+  const fromQuery = request.nextUrl.searchParams.get('key');
+  return provided === apiKey || fromQuery === apiKey;
 }
 
 export async function OPTIONS() {
