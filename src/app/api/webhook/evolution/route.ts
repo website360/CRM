@@ -64,10 +64,14 @@ export async function POST(request: NextRequest) {
     }
 
     const data = body.data;
-    if (!data || data.key?.fromMe) return NextResponse.json({ ok: true });
+    if (!data) return NextResponse.json({ ok: true });
 
-    const senderPhone = data.key?.remoteJid?.replace('@s.whatsapp.net', '') || '';
-    if (!senderPhone || senderPhone.includes('@g.us')) return NextResponse.json({ ok: true });
+    const isFromMe = data.key?.fromMe === true;
+    const contactPhone = data.key?.remoteJid?.replace('@s.whatsapp.net', '') || '';
+    if (!contactPhone || contactPhone.includes('@g.us')) return NextResponse.json({ ok: true });
+
+    // Rename for clarity
+    const senderPhone = contactPhone;
 
     // Extract text from various message types
     const msg = data.message || {};
@@ -148,7 +152,7 @@ export async function POST(request: NextRequest) {
       text = text || `[Documento: ${msg.documentMessage.fileName || 'arquivo'}]`;
     }
 
-    console.log(`[Evolution] Message from ${senderPhone}: text="${text?.slice(0, 50)}" mediaType=${mediaType} hasMediaUrl=${!!mediaUrl}`);
+    console.log(`[Evolution] ${isFromMe ? 'Sent' : 'Received'} ${senderPhone}: text="${text?.slice(0, 50)}" mediaType=${mediaType}`);
 
     // Skip if no content at all
     if (!text && !mediaUrl) return NextResponse.json({ ok: true });
@@ -167,31 +171,47 @@ export async function POST(request: NextRequest) {
 
     // Get or create conversation
     let conversation = await prisma.conversation.findUnique({
-      where: { channelId_contactId: { channelId: channel.id, contactId: senderPhone } },
+      where: { channelId_contactId: { channelId: channel.id, contactId: contactPhone } },
     });
 
     if (!conversation) {
+      if (isFromMe) return NextResponse.json({ ok: true }); // Don't create conversation from sent messages
       conversation = await prisma.conversation.create({
-        data: { channelId: channel.id, contactId: senderPhone, contactName: senderName, contactAvatar: senderProfilePic, mode: channel.aiEnabled ? 'ai' : 'human', status: 'open' },
+        data: { channelId: channel.id, contactId: contactPhone, contactName: senderName, contactAvatar: senderProfilePic, mode: channel.aiEnabled ? 'ai' : 'human', status: 'open' },
       });
-    } else {
+    } else if (!isFromMe) {
       const updates: Record<string, unknown> = {};
       if (senderName !== senderPhone && conversation.contactName !== senderName) updates.contactName = senderName;
       if (senderProfilePic && !conversation.contactAvatar) updates.contactAvatar = senderProfilePic;
       if (Object.keys(updates).length > 0) await prisma.conversation.update({ where: { id: conversation.id }, data: updates });
     }
 
+    const content = mediaUrl ? `[imagem: ${mediaUrl}]` : text;
+
+    // If sent by us (fromMe), save as "human" message
+    if (isFromMe) {
+      // Check if we already saved this message (sent via CRM)
+      const recentMsg = await prisma.message.findFirst({
+        where: { conversationId: conversation.id, sender: 'human', content, timestamp: { gte: new Date(Date.now() - 5000) } },
+      });
+      if (!recentMsg) {
+        await prisma.message.create({ data: { conversationId: conversation.id, sender: 'human', content, mediaUrl, mediaType } });
+        await prisma.conversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date() } });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    // Received message - save and process
     // Auto-create/update contact
     const existingContact = await prisma.lead.findFirst({ where: { phone: senderPhone } });
     if (!existingContact) {
       await prisma.lead.create({
         data: { name: senderName, email: `${senderPhone}@whatsapp.contact`, phone: senderPhone, source: `whatsapp-${channel.name}`, status: 'new' },
-      }).catch(() => {}); // ignore duplicate email
+      }).catch(() => {});
     } else if (existingContact.name === existingContact.phone && senderName !== senderPhone) {
       await prisma.lead.update({ where: { id: existingContact.id }, data: { name: senderName } }).catch(() => {});
     }
 
-    const content = mediaUrl ? `[imagem: ${mediaUrl}]` : text;
     await prisma.message.create({ data: { conversationId: conversation.id, sender: 'contact', content, mediaUrl, mediaType } });
     await prisma.conversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date(), unread: { increment: 1 } } });
 
