@@ -298,10 +298,12 @@ export default function InboxPage() {
                 const channelCfg = (activeChat.channel.config || {}) as Record<string, string>;
                 const hasSignature = channelCfg.signatureEnabled === 'true' && channelCfg.signature;
                 const humanLabel = hasSignature ? channelCfg.signature : "Atendente";
-                const isImage = msg.content.startsWith("[imagem:") || msg.mediaUrl;
-                const imageUrl = msg.mediaUrl || (msg.content.match(/\[imagem:\s*(.*?)\]/)?.[1]) || null;
+                const isImage = (msg.content.startsWith("[imagem:") || msg.mediaUrl) && msg.mediaType !== 'audio';
+                const imageUrl = msg.mediaType !== 'audio' ? (msg.mediaUrl || (msg.content.match(/\[imagem:\s*(.*?)\]/)?.[1]) || null) : null;
                 const isSticker = msg.content === "[Figurinha]" || msg.mediaType === "sticker";
-                const isMedia = msg.content.startsWith("[Vídeo]") || msg.content.startsWith("[Áudio]") || msg.content.startsWith("[Documento");
+                const isAudio = msg.mediaType === "audio" || msg.content === "[Áudio]";
+                const audioUrl = isAudio ? msg.mediaUrl : null;
+                const isMedia = !isAudio && (msg.content.startsWith("[Vídeo]") || msg.content.startsWith("[Documento"));
 
                 return (
                   <div key={msg.id} className={`flex items-end gap-2 ${isContact ? "justify-start" : "justify-end"}`}>
@@ -325,13 +327,22 @@ export default function InboxPage() {
                           {isAi ? "IA" : humanLabel}
                         </span>
                       )}
-                      {imageUrl ? (
+                      {audioUrl ? (
+                        <div>
+                          <audio controls className="max-w-[240px]" src={audioUrl} />
+                        </div>
+                      ) : imageUrl ? (
                         <a href={imageUrl.startsWith('data:') ? undefined : imageUrl} target="_blank" rel="noopener noreferrer">
                           <img src={imageUrl} alt="" className={`rounded-lg max-w-full object-cover ${isSticker ? 'max-h-32 bg-transparent' : 'max-h-60'}`} />
                           {msg.content && !msg.content.startsWith('[imagem:') && !msg.content.startsWith('[Figurinha') && (
                             <p className="whitespace-pre-wrap mt-1">{msg.content}</p>
                           )}
                         </a>
+                      ) : isAudio ? (
+                        <p className="whitespace-pre-wrap italic opacity-70 flex items-center gap-1.5">
+                          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m0 0l-4-4m4 4l4-4" /></svg>
+                          Áudio
+                        </p>
                       ) : isMedia ? (
                         <p className="whitespace-pre-wrap italic opacity-70">{msg.content}</p>
                       ) : (

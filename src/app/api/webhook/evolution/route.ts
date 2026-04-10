@@ -143,6 +143,21 @@ export async function POST(request: NextRequest) {
     // Handle audio
     if (msg.audioMessage) {
       mediaType = 'audio';
+      const b64Audio = data.message?.base64 || data.base64 || null;
+      if (b64Audio) {
+        mediaUrl = `data:${msg.audioMessage.mimetype || 'audio/ogg'};base64,${b64Audio}`;
+      } else if (data.key?.id && evoUrl) {
+        try {
+          const mediaRes = await fetch(`${evoUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', apikey: evoKey },
+            body: JSON.stringify({ message: { key: data.key, message: data.message } }),
+          });
+          if (mediaRes.ok) {
+            const mediaData = await mediaRes.json();
+            if (mediaData.base64) mediaUrl = `data:${msg.audioMessage.mimetype || 'audio/ogg'};base64,${mediaData.base64}`;
+          }
+        } catch (e) { console.error('[Evolution] Audio download error:', e); }
+      }
       text = text || '[Áudio]';
     }
 
