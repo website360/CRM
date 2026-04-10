@@ -61,6 +61,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Trigger automations for new lead
+    import('@/lib/automation-runner').then(({ runAutomations }) => {
+      runAutomations('new_lead', { leadId: lead.id, contactName: lead.name, contactPhone: lead.phone || undefined, contactEmail: lead.email }).catch(console.error);
+    });
+
     return corsResponse(lead, { status: 201 });
   } catch (error) {
     console.error(error);
