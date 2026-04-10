@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import ConfirmModal from "@/components/ConfirmModal";
 import { toast } from "@/components/Toast";
+import UpgradeBanner from "@/components/UpgradeBanner";
 
 type Member = { id: number; name: string; email: string; role: string; avatar: string | null; lastLogin: string | null; createdAt: string };
 type OrgInfo = { plan: { name: string; maxUsers: number } | null; _count: { users: number } };
@@ -46,6 +47,7 @@ export default function EquipePage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      <UpgradeBanner resource="users" />
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">Equipe</h2>

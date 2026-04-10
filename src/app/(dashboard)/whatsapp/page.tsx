@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import ConfirmModal from "@/components/ConfirmModal";
 import ImageUpload from "@/components/ImageUpload";
+import UpgradeBanner from "@/components/UpgradeBanner";
 
 type Instance = {
   id: number;
@@ -145,6 +146,7 @@ export default function WhatsAppPage() {
 
   return (
     <div>
+      <UpgradeBanner resource="channels" />
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">Canais</h2>

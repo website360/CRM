@@ -2,8 +2,6 @@ import Sidebar from "@/components/Sidebar";
 import ThemeProvider from "@/components/ThemeProvider";
 import HeaderClient from "@/components/HeaderClient";
 import ToastProvider from "@/components/Toast";
-import UpgradeBanner from "@/components/UpgradeBanner";
-
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
@@ -13,7 +11,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <HeaderClient />
           <main>
             <div className="p-4 md:p-6">
-              <UpgradeBanner />
               {children}
             </div>
           </main>
