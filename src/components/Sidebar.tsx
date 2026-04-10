@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useTheme } from './ThemeProvider';
 
 const menuItems = [
@@ -17,9 +18,16 @@ const menuItems = [
   { name: 'Ajuda', href: '/ajuda', icon: <path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /> },
 ];
 
+type UserInfo = { name: string; email: string; avatar: string | null };
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar, sidebarOpen, setSidebarOpen } = useTheme();
+  const [user, setUser] = useState<UserInfo | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then((r) => r.json()).then((d) => { if (d.user) setUser(d.user); }).catch(() => {});
+  }, []);
 
   return (
     <>
@@ -94,15 +102,19 @@ export default function Sidebar() {
         {/* Footer */}
         {!sidebarCollapsed && (
           <div className="border-t border-gray-200 dark:border-gray-800 px-5 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">A</span>
-              </div>
+            <Link href="/perfil" className="flex items-center gap-3 hover:opacity-80 transition">
+              {user?.avatar ? (
+                <img src={user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500">
+                  <span className="text-sm font-bold text-white">{user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "?"}</span>
+                </div>
+              )}
               <div>
-                <p className="text-sm font-medium text-gray-800 dark:text-white/90">Admin</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">admin@crmlp.com</p>
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">{user?.name || "..."}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email || ""}</p>
               </div>
-            </div>
+            </Link>
           </div>
         )}
       </aside>
