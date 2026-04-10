@@ -180,59 +180,110 @@ export default function FlowEditor({ automation, onSave, onClose }: { automation
         {selectedNode && selectedNode.type !== "trigger" && (
           <div className="p-4 flex-1 overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Propriedades</p>
-              <button onClick={() => deleteNode(selectedNode.id)} className="text-xs text-error-500 hover:text-error-600">Deletar</button>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                {nodeLabels[selectedNode.type || "trigger"] || "Propriedades"}
+              </p>
+              <button onClick={() => deleteNode(selectedNode.id)} className="text-xs text-error-500 hover:text-error-600">Remover</button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
               <div>
-                <label className="block text-[11px] text-gray-500 mb-1">Label</label>
+                <label className="block text-[11px] text-gray-500 mb-1">Nome do nó</label>
                 <input value={selectedNode.data.label || ""} onChange={(e) => updateNodeData(selectedNode.id, { label: e.target.value })} className={inp} />
               </div>
 
               {selectedNode.type === "send_whatsapp" && (
                 <>
-                  <div><label className="block text-[11px] text-gray-500 mb-1">ID do Canal</label>
-                    <input value={selectedNode.data.channelId || ""} onChange={(e) => updateNodeData(selectedNode.id, { channelId: e.target.value })} className={inp} placeholder="ID do canal WhatsApp" /></div>
-                  <div><label className="block text-[11px] text-gray-500 mb-1">Mensagem</label>
-                    <textarea value={selectedNode.data.message || ""} onChange={(e) => updateNodeData(selectedNode.id, { message: e.target.value })} className={inp + " resize-none"} rows={3} placeholder="Olá {nome}!" /></div>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">ID do Canal WhatsApp</label>
+                    <input value={selectedNode.data.channelId || ""} onChange={(e) => updateNodeData(selectedNode.id, { channelId: e.target.value })} className={inp} placeholder="Ex: 5" />
+                    <p className="text-[10px] text-gray-400 mt-0.5">Veja o ID na página Canais</p>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Mensagem</label>
+                    <textarea value={selectedNode.data.message || ""} onChange={(e) => updateNodeData(selectedNode.id, { message: e.target.value })} className={inp + " resize-none"} rows={4} placeholder={"Olá {nome}!\n\nVimos que você tem interesse em nossos serviços."} />
+                    <p className="text-[10px] text-gray-400 mt-0.5">Variáveis: {'{nome}'}, {'{telefone}'}</p>
+                  </div>
                 </>
               )}
 
               {selectedNode.type === "send_email" && (
                 <>
-                  <div><label className="block text-[11px] text-gray-500 mb-1">Assunto</label>
-                    <input value={selectedNode.data.subject || ""} onChange={(e) => updateNodeData(selectedNode.id, { subject: e.target.value })} className={inp} placeholder="Assunto do email" /></div>
-                  <div><label className="block text-[11px] text-gray-500 mb-1">Template HTML</label>
-                    <textarea value={selectedNode.data.template || ""} onChange={(e) => updateNodeData(selectedNode.id, { template: e.target.value })} className={inp + " resize-none font-mono text-xs"} rows={5} placeholder="<h1>Olá {nome}</h1>" /></div>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Assunto</label>
+                    <input value={selectedNode.data.subject || ""} onChange={(e) => updateNodeData(selectedNode.id, { subject: e.target.value })} className={inp} placeholder="Olá {nome}, temos novidades!" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Corpo do email (HTML)</label>
+                    <textarea value={selectedNode.data.template || ""} onChange={(e) => updateNodeData(selectedNode.id, { template: e.target.value })} className={inp + " resize-none font-mono text-xs"} rows={6} placeholder={"<h2>Olá {nome}!</h2>\n<p>Temos uma novidade para você.</p>\n<a href='#'>Saiba mais</a>"} />
+                    <p className="text-[10px] text-gray-400 mt-0.5">Variáveis: {'{nome}'}, {'{email}'}, {'{telefone}'}</p>
+                  </div>
                 </>
               )}
 
               {selectedNode.type === "delay" && (
-                <div><label className="block text-[11px] text-gray-500 mb-1">Tempo de espera</label>
-                  <select value={selectedNode.data.delay || "1h"} onChange={(e) => updateNodeData(selectedNode.id, { delay: e.target.value })} className={inp}>
-                    <option value="5m">5 minutos</option><option value="30m">30 minutos</option>
-                    <option value="1h">1 hora</option><option value="6h">6 horas</option>
-                    <option value="24h">24 horas</option><option value="48h">48 horas</option>
-                    <option value="7d">7 dias</option>
-                  </select></div>
+                <>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Tempo de espera</label>
+                    <select value={selectedNode.data.delay || "1h"} onChange={(e) => updateNodeData(selectedNode.id, { delay: e.target.value })} className={inp}>
+                      <option value="5m">5 minutos</option><option value="15m">15 minutos</option><option value="30m">30 minutos</option>
+                      <option value="1h">1 hora</option><option value="3h">3 horas</option><option value="6h">6 horas</option><option value="12h">12 horas</option>
+                      <option value="24h">1 dia</option><option value="48h">2 dias</option><option value="72h">3 dias</option>
+                      <option value="7d">7 dias</option><option value="14d">14 dias</option><option value="30d">30 dias</option>
+                    </select>
+                  </div>
+                  <p className="text-[10px] text-gray-400 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">O fluxo pausa aqui e continua após o tempo definido.</p>
+                </>
               )}
 
               {selectedNode.type === "filter" && (
                 <>
-                  <div><label className="block text-[11px] text-gray-500 mb-1">Fonte (contém)</label>
-                    <input value={selectedNode.data.source || ""} onChange={(e) => updateNodeData(selectedNode.id, { source: e.target.value })} className={inp} placeholder="wordpress, whatsapp" /></div>
-                  <div><label className="block text-[11px] text-gray-500 mb-1">Status</label>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Filtrar por fonte</label>
+                    <input value={selectedNode.data.source || ""} onChange={(e) => updateNodeData(selectedNode.id, { source: e.target.value })} className={inp} placeholder="Ex: wordpress" />
+                    <p className="text-[10px] text-gray-400 mt-0.5">Mantém só leads com essa fonte</p>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Filtrar por status</label>
                     <select value={selectedNode.data.status || ""} onChange={(e) => updateNodeData(selectedNode.id, { status: e.target.value })} className={inp}>
-                      <option value="">Todos</option><option value="new">Novo</option><option value="contacted">Contatado</option><option value="qualified">Qualificado</option>
-                    </select></div>
+                      <option value="">Todos</option><option value="new">Novo</option><option value="contacted">Contatado</option><option value="qualified">Qualificado</option><option value="converted">Convertido</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Filtrar por etapa do CRM</label>
+                    <input value={selectedNode.data.stageId || ""} onChange={(e) => updateNodeData(selectedNode.id, { stageId: e.target.value })} className={inp} placeholder="ID da etapa (opcional)" />
+                    <p className="text-[10px] text-gray-400 mt-0.5">Filtra deals de uma etapa específica</p>
+                  </div>
                 </>
               )}
 
               {selectedNode.type === "update_status" && (
-                <div><label className="block text-[11px] text-gray-500 mb-1">Novo status</label>
+                <div>
+                  <label className="block text-[11px] text-gray-500 mb-1">Novo status do lead</label>
                   <select value={selectedNode.data.newStatus || "contacted"} onChange={(e) => updateNodeData(selectedNode.id, { newStatus: e.target.value })} className={inp}>
                     <option value="new">Novo</option><option value="contacted">Contatado</option><option value="qualified">Qualificado</option><option value="converted">Convertido</option>
-                  </select></div>
+                  </select>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Altera o status de todos os leads no fluxo</p>
+                </div>
+              )}
+
+              {selectedNode.type === "condition" && (
+                <>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Campo para verificar</label>
+                    <select value={selectedNode.data.field || "status"} onChange={(e) => updateNodeData(selectedNode.id, { field: e.target.value })} className={inp}>
+                      <option value="status">Status do lead</option><option value="source">Fonte</option><option value="phone">Tem telefone?</option><option value="email">Tem email?</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Valor esperado</label>
+                    <input value={selectedNode.data.value || ""} onChange={(e) => updateNodeData(selectedNode.id, { value: e.target.value })} className={inp} placeholder="Ex: new, qualified" />
+                  </div>
+                  <p className="text-[10px] text-gray-400 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">Saída 1 (verde): condição verdadeira. Saída 2: condição falsa.</p>
+                </>
+              )}
+
+              {selectedNode.type === "add_to_crm" && (
+                <p className="text-[10px] text-gray-400 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">Cria um deal no CRM para cada lead no fluxo, na primeira etapa do pipeline.</p>
               )}
             </div>
           </div>

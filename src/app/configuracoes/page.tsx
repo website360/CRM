@@ -174,6 +174,30 @@ export default function ConfiguracoesPage() {
         </div>
       ))}
 
+      {/* Test Email */}
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] overflow-hidden">
+        <div className="px-6 py-5 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-white/90">Testar Email</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Envie um email de teste para verificar a configuração SMTP</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input id="test-email-input" type="email" placeholder="seu@email.com"
+              className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-white/90 w-56 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10" />
+            <button onClick={async () => {
+              const input = document.getElementById('test-email-input') as HTMLInputElement;
+              if (!input.value) return;
+              const res = await fetch('/api/settings/test-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: input.value }) });
+              const data = await res.json();
+              if (data.ok) { setSaved(true); setTimeout(() => setSaved(false), 3000); }
+              else { alert(data.error || 'Erro no envio'); }
+            }} className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition">
+              Enviar Teste
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Webhook URLs info */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
