@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyToken } from '@/lib/auth';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -56,6 +57,14 @@ export async function POST(request: NextRequest) {
       ...(Object.keys(extraFields).length > 0 ? extraFields : {}),
     };
 
+    // Get orgId from auth token if available
+    let orgId: number | null = null;
+    const authToken = request.cookies.get('auth_token')?.value;
+    if (authToken) {
+      const payload = verifyToken(authToken);
+      if (payload?.orgId) orgId = payload.orgId;
+    }
+
     const lead = await prisma.lead.create({
       data: {
         name,
@@ -64,6 +73,7 @@ export async function POST(request: NextRequest) {
         source: source || 'wordpress',
         notes: notes || null,
         metadata: Object.keys(allMetadata).length > 0 ? allMetadata : undefined,
+        orgId,
       },
     });
 

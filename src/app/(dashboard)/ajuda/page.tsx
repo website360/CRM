@@ -1,6 +1,6 @@
 export default function AjudaPage() {
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white/90">Central de Ajuda</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Guias de configuração para todos os canais e integrações</p>

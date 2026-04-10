@@ -46,7 +46,7 @@ export default function EquipePage() {
   const canAdd = currentUsers < maxUsers;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="space-y-6">
       <UpgradeBanner resource="users" />
       <div className="flex items-center justify-between">
         <div>

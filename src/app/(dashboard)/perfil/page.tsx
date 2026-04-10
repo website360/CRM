@@ -77,7 +77,7 @@ export default function PerfilPage() {
   const inp = "w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition";
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-6">
       <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">Meu Perfil</h2>
 
       {/* Avatar + Name */}
