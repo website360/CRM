@@ -13,7 +13,7 @@ export default function HeaderClient() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch("/api/auth/me").then((r) => r.json()).then((d) => { if (d.user) setUser(d.user); }).catch(() => {});
+    fetch("/api/auth/me").then((r) => r.ok ? r.json() : null).then((d) => { if (d?.user) setUser(d.user); }).catch(() => {});
   }, []);
 
   async function handleLogout() {

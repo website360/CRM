@@ -21,10 +21,16 @@ export default function PerfilPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/auth/me").then((r) => r.json()).then((d) => {
-      if (d.user) { setUser(d.user); setName(d.user.name); }
-      if (d.org) { setOrg(d.org); setOrgName(d.org.name); setOrgPhone(d.org.phone || ""); setOrgWebsite(d.org.website || ""); setOrgAddress(d.org.address || ""); }
-    });
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (d?.user) { setUser(d.user); setName(d.user.name); }
+      }).catch(() => {});
+    fetch("/api/org")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (d?.id) { setOrg(d); setOrgName(d.name || ""); setOrgPhone(d.phone || ""); setOrgWebsite(d.website || ""); setOrgAddress(d.address || ""); }
+      }).catch(() => {});
   }, []);
 
   async function handleUploadAvatar(file: File) {

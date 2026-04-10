@@ -26,7 +26,7 @@ export default function Sidebar() {
   const [user, setUser] = useState<UserInfo | null>(null);
 
   useEffect(() => {
-    fetch("/api/auth/me").then((r) => r.json()).then((d) => { if (d.user) setUser(d.user); }).catch(() => {});
+    fetch("/api/auth/me").then((r) => r.ok ? r.json() : null).then((d) => { if (d?.user) setUser(d.user); }).catch(() => {});
   }, []);
 
   return (
