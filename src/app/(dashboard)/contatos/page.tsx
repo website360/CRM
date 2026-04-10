@@ -1,10 +1,13 @@
 import { prisma } from '@/lib/prisma';
+import { getAuthUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContatosPage() {
+  const user = await getAuthUser();
+  const orgFilter = user?.orgId ? { orgId: user.orgId } : {};
   const contacts = await prisma.lead.findMany({
-    where: { phone: { not: null } },
+    where: { ...orgFilter, phone: { not: null } },
     orderBy: { createdAt: 'desc' },
   });
 

@@ -1,9 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getOrgIdFromRequest } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const orgId = getOrgIdFromRequest(request);
+  const orgFilter = orgId ? { orgId } : {};
+
   // Lead stats
-  const leads = await prisma.lead.findMany({ select: { source: true, status: true } });
+  const leads = await prisma.lead.findMany({ where: orgFilter, select: { source: true, status: true } });
   const sourceCounts: Record<string, number> = {};
   const statusCounts: Record<string, number> = {};
   for (const lead of leads) {

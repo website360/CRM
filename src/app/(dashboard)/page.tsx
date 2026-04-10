@@ -1,15 +1,19 @@
 import { prisma } from '@/lib/prisma';
+import { getAuthUser } from '@/lib/auth';
 import DashboardCharts from '@/components/DashboardCharts';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Dashboard() {
-  const totalLeads = await prisma.lead.count();
-  const newLeads = await prisma.lead.count({ where: { status: 'new' } });
-  const whatsappClicks = await prisma.lead.count({ where: { status: 'whatsapp' } });
-  const contactedLeads = await prisma.lead.count({ where: { status: 'contacted' } });
+  const user = await getAuthUser();
+  const orgFilter = user?.orgId ? { orgId: user.orgId } : {};
 
-  const recentLeads = await prisma.lead.findMany({ orderBy: { createdAt: 'desc' }, take: 5 });
+  const totalLeads = await prisma.lead.count({ where: orgFilter });
+  const newLeads = await prisma.lead.count({ where: { ...orgFilter, status: 'new' } });
+  const whatsappClicks = await prisma.lead.count({ where: { ...orgFilter, status: 'whatsapp' } });
+  const contactedLeads = await prisma.lead.count({ where: { ...orgFilter, status: 'contacted' } });
+
+  const recentLeads = await prisma.lead.findMany({ where: orgFilter, orderBy: { createdAt: 'desc' }, take: 5 });
 
   const stats = [
     { title: 'Total de Leads', value: totalLeads, change: '+11.01%', positive: true, bg: 'bg-brand-50 dark:bg-brand-500/10', iconColor: 'text-brand-500', icon: <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /> },

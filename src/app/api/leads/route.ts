@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
+import { verifyToken, getOrgIdFromRequest } from '@/lib/auth';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -95,7 +95,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const leads = await prisma.lead.findMany({ orderBy: { createdAt: 'desc' } });
+    const orgId = getOrgIdFromRequest(request);
+    const leads = await prisma.lead.findMany({ where: orgId ? { orgId } : undefined, orderBy: { createdAt: 'desc' } });
     return corsResponse(leads);
   } catch (error) {
     console.error(error);

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { getAuthUser } from '@/lib/auth';
 import LeadForm from '@/components/LeadForm';
 import LeadsTabs from '@/components/LeadsTabs';
 import UpgradeBanner from '@/components/UpgradeBanner';
@@ -6,7 +7,9 @@ import UpgradeBanner from '@/components/UpgradeBanner';
 export const dynamic = 'force-dynamic';
 
 export default async function LeadsPage() {
-  const leads = await prisma.lead.findMany({ orderBy: { createdAt: 'desc' } });
+  const user = await getAuthUser();
+  const orgFilter = user?.orgId ? { orgId: user.orgId } : {};
+  const leads = await prisma.lead.findMany({ where: orgFilter, orderBy: { createdAt: 'desc' } });
 
   // Serialize dates for client component
   const serialized = leads.map((lead) => ({

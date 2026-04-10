@@ -49,6 +49,14 @@ export async function getAuthUser(): Promise<AuthUser | null> {
   return user;
 }
 
+// Get orgId from a NextRequest (for route handlers)
+export function getOrgIdFromRequest(request: { cookies: { get: (name: string) => { value: string } | undefined } }): number | null {
+  const token = request.cookies.get('auth_token')?.value;
+  if (!token) return null;
+  const payload = verifyToken(token);
+  return payload?.orgId || null;
+}
+
 export async function getAuthOrg() {
   const user = await getAuthUser();
   if (!user?.orgId) return null;

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getOrgIdFromRequest } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const orgId = getOrgIdFromRequest(request);
   const audiences = await prisma.audience.findMany({
+    where: orgId ? { orgId } : undefined,
     orderBy: { createdAt: 'desc' },
     include: { _count: { select: { campaigns: true } } },
   });
@@ -27,8 +30,9 @@ export async function POST(request: NextRequest) {
   const filterObj = filters || {};
   const matchCount = await countMatches(filterObj);
 
+  const orgId = getOrgIdFromRequest(request);
   const audience = await prisma.audience.create({
-    data: { name, description, filters: filterObj, matchCount },
+    data: { name, description, filters: filterObj, matchCount, orgId },
   });
   return NextResponse.json(audience, { status: 201 });
 }

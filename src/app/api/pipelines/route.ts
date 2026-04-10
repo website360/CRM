@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getOrgIdFromRequest } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const orgId = getOrgIdFromRequest(request);
   const pipelines = await prisma.pipeline.findMany({
+    where: orgId ? { orgId } : undefined,
     include: {
       stages: {
         orderBy: { position: 'asc' },
         include: {
-          deals: {
-            orderBy: { position: 'asc' },
-            include: { lead: { select: { name: true, phone: true, email: true } } },
-          },
+          deals: { orderBy: { position: 'asc' }, include: { lead: { select: { name: true, phone: true, email: true } } } },
           _count: { select: { deals: true } },
         },
       },
@@ -18,11 +18,10 @@ export async function GET() {
     orderBy: { createdAt: 'asc' },
   });
 
-  // Create default pipeline if none exists
-  if (pipelines.length === 0) {
+  if (pipelines.length === 0 && orgId) {
     const pipeline = await prisma.pipeline.create({
       data: {
-        name: 'Pipeline de Vendas',
+        name: 'Pipeline de Vendas', orgId,
         stages: {
           create: [
             { name: 'Novo Lead', color: '#465FFF', position: 0 },
@@ -34,12 +33,7 @@ export async function GET() {
           ],
         },
       },
-      include: {
-        stages: {
-          orderBy: { position: 'asc' },
-          include: { deals: true, _count: { select: { deals: true } } },
-        },
-      },
+      include: { stages: { orderBy: { position: 'asc' }, include: { deals: true, _count: { select: { deals: true } } } } },
     });
     return NextResponse.json([pipeline]);
   }
@@ -48,9 +42,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const orgId = getOrgIdFromRequest(request);
   const { name } = await request.json();
   const pipeline = await prisma.pipeline.create({
-    data: { name: name || 'Novo Pipeline' },
+    data: { name: name || 'Novo Pipeline', orgId },
     include: { stages: true },
   });
   return NextResponse.json(pipeline, { status: 201 });

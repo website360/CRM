@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendWhatsAppMessage } from '@/lib/whatsapp/send';
+import { getOrgIdFromRequest } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const orgId = getOrgIdFromRequest(request);
   const campaigns = await prisma.campaign.findMany({
+    where: orgId ? { orgId } : undefined,
     orderBy: { createdAt: 'desc' },
     include: {
       audience: { select: { name: true, matchCount: true } },
@@ -107,6 +110,7 @@ export async function POST(request: NextRequest) {
   // Create campaign
   if (!name) return NextResponse.json({ error: 'Nome obrigatório' }, { status: 400 });
 
+  const orgId = getOrgIdFromRequest(request);
   const campaign = await prisma.campaign.create({
     data: {
       name,
@@ -117,6 +121,7 @@ export async function POST(request: NextRequest) {
       channelId: channelId || null,
       message: message || null,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+      orgId,
     },
   });
   return NextResponse.json(campaign, { status: 201 });
