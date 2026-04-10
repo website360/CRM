@@ -54,62 +54,54 @@ export async function POST(request: NextRequest) {
     }
 
     let sentCount = 0;
+    const isMulti = campaign.channelType === 'multi';
+    let multiConfig: { subject?: string; whatsappChannelIds?: number[]; email?: boolean } = {};
+    if (isMulti && campaign.description) {
+      try { multiConfig = JSON.parse(campaign.description); } catch {}
+    }
+    const shouldSendEmail = campaign.channelType === 'email' || isMulti && multiConfig.email;
+    const shouldSendWhatsApp = campaign.channelType === 'whatsapp' || isMulti;
 
-    // Send via Email (SMTP)
-    if (campaign.channelType === 'email') {
+    // Send via Email
+    if (shouldSendEmail) {
       const { sendEmail } = await import('@/lib/email');
-      const emailSubject = campaign.description || 'Sem assunto';
-
+      const emailSubject = (isMulti ? multiConfig.subject : campaign.description) || 'Sem assunto';
       for (const contact of contacts) {
         if (!contact.email || contact.email.endsWith('@click.track') || contact.email.endsWith('@whatsapp.contact')) continue;
         try {
-          const html = (campaign.message || '')
-            .replace(/\{nome\}/gi, contact.name || '')
-            .replace(/\{email\}/gi, contact.email || '')
-            .replace(/\{telefone\}/gi, contact.phone || '');
-          const subj = emailSubject
-            .replace(/\{nome\}/gi, contact.name || '');
-
-          await sendEmail(contact.email, subj, html);
+          const html = (campaign.message || '').replace(/\{nome\}/gi, contact.name || '').replace(/\{email\}/gi, contact.email || '').replace(/\{telefone\}/gi, contact.phone || '');
+          await sendEmail(contact.email, emailSubject.replace(/\{nome\}/gi, contact.name || ''), html);
           await prisma.campaignAction.create({ data: { campaignId: campaign.id, leadId: contact.id, action: 'sent' } });
           sentCount++;
-        } catch (e) {
-          console.error(`[Campaign] Email failed to ${contact.email}:`, e);
-        }
+        } catch (e) { console.error(`[Campaign] Email failed:`, e); }
       }
-
-      await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'completed', sentCount: { increment: sentCount } } });
-      return NextResponse.json({ ok: true, sentCount });
     }
 
-    // Send via WhatsApp channel
-    if (campaign.channelId) {
-      const channel = await prisma.channel.findUnique({ where: { id: campaign.channelId } });
-      if (channel && campaign.message) {
+    // Send via WhatsApp
+    const waChannelIds = isMulti ? (multiConfig.whatsappChannelIds || []) : (campaign.channelId ? [campaign.channelId] : []);
+    if (shouldSendWhatsApp && waChannelIds.length > 0) {
+      for (const chId of waChannelIds) {
+        const channel = await prisma.channel.findUnique({ where: { id: chId } });
+        if (!channel || !campaign.message) continue;
         const config = channel.config as Record<string, string>;
-
         for (const contact of contacts) {
           if (!contact.phone) continue;
           try {
-            const personalMsg = campaign.message
-              .replace(/\{nome\}/gi, contact.name || '')
-              .replace(/\{telefone\}/gi, contact.phone || '')
-              .replace(/\{email\}/gi, contact.email || '');
-
-            await sendWhatsAppMessage(config, contact.phone, personalMsg);
+            const msg = campaign.message.replace(/\{nome\}/gi, contact.name || '').replace(/\{telefone\}/gi, contact.phone || '').replace(/\{email\}/gi, contact.email || '');
+            await sendWhatsAppMessage(config, contact.phone, msg);
             await prisma.campaignAction.create({ data: { campaignId: campaign.id, leadId: contact.id, action: 'sent' } });
             sentCount++;
-          } catch (e) {
-            console.error(`[Campaign] WhatsApp failed to ${contact.phone}:`, e);
-          }
+          } catch (e) { console.error(`[Campaign] WhatsApp failed:`, e); }
         }
-
-        await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'completed', sentCount: { increment: sentCount } } });
-        return NextResponse.json({ ok: true, sentCount });
       }
     }
 
-    return NextResponse.json({ error: 'Canal não configurado' }, { status: 400 });
+    if (sentCount === 0 && !shouldSendEmail && waChannelIds.length === 0) {
+      return NextResponse.json({ error: 'Nenhum canal selecionado' }, { status: 400 });
+    }
+
+    await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'completed', sentCount: { increment: sentCount } } });
+    return NextResponse.json({ ok: true, sentCount });
   }
 
   // Create campaign

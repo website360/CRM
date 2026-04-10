@@ -422,21 +422,36 @@ function CampaignFormModal({ campaign, audiences, channels, onClose, onSave }: {
   const [description, setDescription] = useState(campaign?.description || "");
   const [type, setType] = useState(campaign?.type || "manual");
   const [audienceId, setAudienceId] = useState<string>(campaign?.audienceId?.toString() || "");
-  const [channelId, setChannelId] = useState<string>(campaign?.channelId?.toString() || "");
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(() => {
+    const init: string[] = [];
+    if (campaign?.channelType === "email") init.push("email");
+    if (campaign?.channelId) init.push(campaign.channelId.toString());
+    return init;
+  });
   const [message, setMessage] = useState(campaign?.message || "");
   const [subject, setSubject] = useState(campaign?.description || "");
   const inp = "w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-white/90 focus:border-brand-300 dark:focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10";
 
+  function toggleChannel(id: string) {
+    setSelectedChannels((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
+  }
+
+  const hasEmail = selectedChannels.includes("email");
+  const whatsappChannelIds = selectedChannels.filter((c) => c !== "email");
+
   async function handleSubmit() {
     if (!name.trim()) return;
-    const isEmail = channelId === "email";
-    const selectedChannel = isEmail ? null : channels.find((c) => c.id === parseInt(channelId));
+    // Save with first whatsapp channel and channelType
+    const channelType = hasEmail && whatsappChannelIds.length > 0 ? "multi" : hasEmail ? "email" : "whatsapp";
+    const firstWaId = whatsappChannelIds.length > 0 ? parseInt(whatsappChannelIds[0]) : null;
     const payload = {
-      name, description: isEmail ? subject : description, type,
+      name, description: hasEmail ? subject : description, type,
       audienceId: audienceId ? parseInt(audienceId) : null,
-      channelId: isEmail ? null : (channelId ? parseInt(channelId) : null),
-      channelType: isEmail ? "email" : (selectedChannel?.type || null),
+      channelId: firstWaId,
+      channelType,
       message,
+      // Store all selected channels in description for multi
+      ...(channelType === "multi" ? { description: JSON.stringify({ subject, whatsappChannelIds: whatsappChannelIds.map(Number), email: true }) } : {}),
     };
     if (campaign) {
       await fetch(`/api/campaigns/${campaign.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -474,32 +489,37 @@ function CampaignFormModal({ campaign, audiences, channels, onClose, onSave }: {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Canal de envio</label>
-            <select value={channelId} onChange={(e) => setChannelId(e.target.value)} className={inp}>
-              <option value="">Selecione...</option>
-              {channels.filter((c) => c.type === 'whatsapp').map((c) => <option key={c.id} value={c.id}>{c.name} (WhatsApp)</option>)}
-              <option value="email">Email (SMTP)</option>
-            </select>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Canais de envio (selecione um ou mais)</label>
+            <div className="flex flex-wrap gap-2">
+              {channels.filter((c) => c.type === 'whatsapp').map((c) => (
+                <button key={c.id} type="button" onClick={() => toggleChannel(c.id.toString())}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium border transition flex items-center gap-1.5 ${
+                    selectedChannels.includes(c.id.toString()) ? "border-success-500 bg-success-50 dark:bg-success-500/10 text-success-600" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"
+                  }`}>
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.07-.3-.14-1.26-.46-2.4-1.47-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51-.17 0-.37-.01-.57-.01-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49"/></svg>
+                  {c.name}
+                </button>
+              ))}
+              <button type="button" onClick={() => toggleChannel("email")}
+                className={`px-3 py-2 rounded-lg text-xs font-medium border transition flex items-center gap-1.5 ${
+                  hasEmail ? "border-error-500 bg-error-50 dark:bg-error-500/10 text-error-600" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"
+                }`}>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                Email (SMTP)
+              </button>
+            </div>
           </div>
-          {channelId === "email" ? (
-            <>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Assunto do email</label>
-                <input value={subject} onChange={(e) => setSubject(e.target.value)} className={inp} placeholder="Novidades para você, {nome}!" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Corpo do email (HTML)</label>
-                <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={6} className={inp + " resize-none font-mono text-xs"} placeholder={'<h2>Olá {nome}!</h2>\n<p>Temos uma novidade especial para você.</p>'} />
-                <p className="text-[11px] text-gray-400 mt-1">Use <code className="text-brand-500">{'{nome}'}</code>, <code className="text-brand-500">{'{email}'}</code> e <code className="text-brand-500">{'{telefone}'}</code> para personalizar</p>
-              </div>
-            </>
-          ) : (
+          {hasEmail && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Mensagem</label>
-              <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} className={inp + " resize-none"} placeholder="Olá {nome}! Temos uma novidade..." />
-              <p className="text-[11px] text-gray-400 mt-1">Use <code className="text-brand-500">{'{nome}'}</code> e <code className="text-brand-500">{'{telefone}'}</code> para personalizar</p>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Assunto do email</label>
+              <input value={subject} onChange={(e) => setSubject(e.target.value)} className={inp} placeholder="Novidades para você, {nome}!" />
             </div>
           )}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{hasEmail ? "Mensagem (WhatsApp) / Corpo HTML (Email)" : "Mensagem"}</label>
+            <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={hasEmail ? 6 : 4} className={inp + " resize-none" + (hasEmail ? " font-mono text-xs" : "")} placeholder={hasEmail ? '<h2>Olá {nome}!</h2>\n<p>Novidade para você.</p>' : "Olá {nome}! Temos uma novidade..."} />
+            <p className="text-[11px] text-gray-400 mt-1">Use <code className="text-brand-500">{'{nome}'}</code>, <code className="text-brand-500">{'{telefone}'}</code>{hasEmail && <>, <code className="text-brand-500">{'{email}'}</code></>} para personalizar</p>
+          </div>
         </div>
         <div className="flex gap-2 mt-5">
           <button onClick={handleSubmit} className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition">{campaign ? "Salvar" : "Criar Campanha"}</button>
